@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'currency_manager.dart';
 import 'achievements.dart';
 import 'screens/achievements_screen.dart'; // Ensure this import is correct
+import 'dart:ui' as ui; // Importado para ui.Image
+
 
 enum PuzzleDifficulty { easy, hard } // Translated enum values
 
@@ -18,12 +20,12 @@ class PuzzleGame extends StatefulWidget {
 }
 
 class _PuzzleGameState extends State<PuzzleGame> {
-  PuzzleDifficulty _difficulty = PuzzleDifficulty.easy; // Translated: facil to easy
+  PuzzleDifficulty _difficulty = PuzzleDifficulty.easy; // Default: easy
   late List<int> tiles;
-  int gridSize = 3;
+  int gridSize = 3; // Initialized, will be set by _initializeGame
   int movimientos = 0;
   bool gameComplete = false;
-  late Image puzzleImage;
+  ui.Image? _loadedPuzzleImage; // Will hold the actual ui.Image object
   List<int> mejoresPuntuaciones = []; // Best puzzle scores
   Timer? _timer;
 
@@ -33,106 +35,94 @@ class _PuzzleGameState extends State<PuzzleGame> {
     _initializeGame(); // Call initializeGame first to set difficulty and gridSize
   }
 
-  // --- _initializeGame FUNCTION MODIFIED ---
-  // Now async and calls _cargarMejoresPuntuaciones
+  @override
+  void dispose() {
+    _timer?.cancel(); // Ensure the timer is cancelled if used
+    // Dispose the loaded image to free up resources
+    _loadedPuzzleImage?.dispose();
+    super.dispose();
+  }
+
   Future<void> _initializeGame() async {
     int imageToLoad = 1; // Default: loads puzzle1.png for easy
 
-    switch (_difficulty) {
-      case PuzzleDifficulty.easy: // Translated: facil
-        gridSize = 3; // 3x3
-        imageToLoad = 1; // For easy, use puzzle1.png
-        break;
-      case PuzzleDifficulty.hard: // Translated: dificil
-        gridSize = 5; // 5x5
-        imageToLoad = 2; // For hard, use puzzle2.png
-        break;
-    }
-
-    await _loadImage(imageToLoad); // Call _loadImage with the correct index
-
-    tiles = List.generate(gridSize * gridSize, (index) {
-      final totalTiles = gridSize * gridSize;
-      if (index == totalTiles - 1) {
-        return 0; // The empty space (0) goes at the end in the solved state
-      } else {
-        return index + 1; // Numbered pieces from 1 to N-1
+    setState(() { // Set state for gridSize and image source before loading image
+      switch (_difficulty) {
+        case PuzzleDifficulty.easy: // Translated: facil
+          gridSize = 3; // 3x3
+          imageToLoad = 1; // For easy, use puzzle1.png
+          break;
+        case PuzzleDifficulty.hard: // Translated: dificil
+          gridSize = 5; // 5x5
+          imageToLoad = 2; // For hard, use puzzle2.png
+          break;
       }
+
+      tiles = List.generate(gridSize * gridSize, (index) {
+        final totalTiles = gridSize * gridSize;
+        if (index == totalTiles - 1) {
+          return 0; // The empty space (0) goes at the end in the solved state
+        } else {
+          return index + 1; // Numbered pieces from 1 to N-1
+        }
+      });
+
+      // Shuffle tiles ensuring solvability for odd grid sizes (like 3x3, 5x5)
+      _shuffleTilesSolvable();
+
+      movimientos = 0;
+      gameComplete = false;
     });
 
-    int lastMove = -1;
-    int moves = 200; // Number of random moves to shuffle
-
-    while (moves > 0) {
-      int emptyIndex = tiles.indexOf(0);
-      List<int> possibleMoves = [];
-
-      // Up
-      if (emptyIndex >= gridSize) {
-        possibleMoves.add(emptyIndex - gridSize);
-      }
-      // Down
-      if (emptyIndex < tiles.length - gridSize) {
-        possibleMoves.add(emptyIndex + gridSize);
-      }
-      // Left
-      if (emptyIndex % gridSize != 0) {
-        possibleMoves.add(emptyIndex - 1);
-      }
-      // Right
-      if (emptyIndex % gridSize != gridSize - 1) {
-        possibleMoves.add(emptyIndex + 1);
-      }
-
-      // Avoid undoing the last move
-      if (lastMove != -1) {
-        possibleMoves.remove(lastMove);
-      }
-
-      if (possibleMoves.isNotEmpty) {
-        int moveIndex = possibleMoves[Random().nextInt(possibleMoves.length)];
-        // Swap tiles
-        tiles[emptyIndex] = tiles[moveIndex];
-        tiles[moveIndex] = 0;
-        lastMove = emptyIndex;
-        moves--;
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        movimientos = 0;
-        gameComplete = false;
-      });
-    }
+    await _loadImage(imageToLoad); // Call _loadImage with the correct index
 
     // Load best scores for the current difficulty and user
     await _cargarMejoresPuntuaciones();
   }
 
+  void _shuffleTilesSolvable() {
+    final rnd = Random();
+    int inversions;
+    do {
+      tiles.shuffle(rnd);
+      inversions = 0;
+      for (int i = 0; i < tiles.length - 1; i++) {
+        if (tiles[i] == 0) continue; // Skip the empty tile
+        for (int j = i + 1; j < tiles.length; j++) {
+          if (tiles[j] == 0) continue; // Skip the empty tile
+          if (tiles[i] > tiles[j]) {
+            inversions++;
+          }
+        }
+      }
+    } while (inversions % 2 != 0); // Ensure even number of inversions for odd grid sizes
+  }
+
   Future<void> _loadImage(int imageIndex) async {
     try {
-      if (!mounted) return; // Ensure the widget is still mounted
+      if (!mounted) return;
+      final ImageProvider imageProvider = AssetImage(
+        'assets/images/puzzle/puzzle$imageIndex.png',
+      );
+      // Get ImageStream
+      final ImageStream stream = imageProvider.resolve(const ImageConfiguration());
+      final Completer<ui.Image> completer = Completer<ui.Image>();
+      late ImageStreamListener listener;
+      listener = ImageStreamListener((ImageInfo info, bool synchronousCall) {
+        completer.complete(info.image);
+        stream.removeListener(listener); // Remove listener after image is loaded
+      });
+      stream.addListener(listener);
+      final ui.Image image = await completer.future;
+
       setState(() {
-        puzzleImage = Image.asset(
-          'assets/images/puzzle/puzzle$imageIndex.png', // Use the passed imageIndex
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('Error loading image: assets/images/puzzle/puzzle$imageIndex.png, Error: $error'); // Translated
-            return Container(
-              color: Colors.grey[300],
-              child: const Center(
-                child: Text(
-                  'Error loading image', // Translated
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            );
-          },
-        );
+        _loadedPuzzleImage = image;
       });
     } catch (e) {
       debugPrint('Error loading image: $e'); // Translated
+      setState(() {
+        _loadedPuzzleImage = null; // Clear if error, or set a placeholder image
+      });
     }
   }
 
@@ -155,9 +145,11 @@ class _PuzzleGameState extends State<PuzzleGame> {
   }
 
   bool _canMove(int index, int emptyIndex) {
+    // Same row, adjacent
     if (index ~/ gridSize == emptyIndex ~/ gridSize) {
       return (index - emptyIndex).abs() == 1;
     }
+    // Same column, adjacent
     if (index % gridSize == emptyIndex % gridSize) {
       return (index - emptyIndex).abs() == gridSize;
     }
@@ -172,6 +164,7 @@ class _PuzzleGameState extends State<PuzzleGame> {
         break;
       }
     }
+    // Check if the last tile is the empty space
     if (tiles.isNotEmpty && tiles.last != 0) {
       win = false;
     }
@@ -182,8 +175,6 @@ class _PuzzleGameState extends State<PuzzleGame> {
     return win;
   }
 
-  // --- _showVictoryDialog FUNCTION MODIFIED ---
-  // Now uses CurrencyManager.guardarPuntuacion and addMonedas with the user and difficulty
   void _showVictoryDialog() async {
     int puntuacionBase = 800;
     double multiplicadorDificultad = 1.0;
@@ -222,10 +213,10 @@ class _PuzzleGameState extends State<PuzzleGame> {
 
     // 4. Verify achievements
     await AchievementManager.verificarLogros(
-      widget.usuario,        // The first argument is the user
-      gameNameIdentifier,    // The second argument is the gameNameIdentifier
-      difficultyString,      // The third argument is the difficulty
-      puntuacionFinal,       // The fourth argument is the score
+      widget.usuario, // The first argument is the user
+      gameNameIdentifier, // The second argument is the gameNameIdentifier
+      difficultyString, // The third argument is the difficulty
+      puntuacionFinal, // The fourth argument is the score
     );
 
     // Update best scores for the dialog UI
@@ -285,21 +276,13 @@ class _PuzzleGameState extends State<PuzzleGame> {
     );
   }
 
-  // --- _cargarMejoresPuntuaciones FUNCTION (formerly _mostrarResultadoFinal) MODIFIED AND RENAMED ---
-  // Now uses CurrencyManager.obtenerLasCincoMejoresPuntuacionesPorJuego
   Future<void> _cargarMejoresPuntuaciones() async {
-    // No need to call SharedPreferences.getInstance() here if CurrencyManager is used
     if (!mounted) return;
 
     String gameNameIdentifier = 'puzzle'; // Internal game ID
-    // We don't need difficulty here if `obtenerLasCincoMejoresPuntuacionesPorJuego` consolidates
-    // String difficultyString = _difficulty.name;
-
-    // KEY CHANGE: Function name adjusted to the correct one in CurrencyManager
     List<int> loadedScores = await CurrencyManager.obtenerLasCincoMejoresPuntuacionesPorJuego(
       widget.usuario,
       gameNameIdentifier,
-      // Do not pass difficultyString here if the consolidated function does not require it
     );
 
     setState(() {
@@ -312,13 +295,9 @@ class _PuzzleGameState extends State<PuzzleGame> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // START OF KEY MODIFICATION:
-        // Explicitly add the back button in the 'leading' position.
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            // Ensure Navigator can pop before trying.
-            // This prevents errors if it's already the first screen.
             if (Navigator.of(context).canPop()) {
               Navigator.of(context).pop();
             }
@@ -327,7 +306,6 @@ class _PuzzleGameState extends State<PuzzleGame> {
         title: const Text('Sliding Puzzle'), // Translated
         backgroundColor: Theme.of(context).colorScheme.primary,
         actions: [
-          // This is the menu button that opens the Drawer. We move it here from 'leading'.
           Builder(
             builder: (context) {
               return IconButton(
@@ -338,7 +316,6 @@ class _PuzzleGameState extends State<PuzzleGame> {
               );
             },
           ),
-          // Other icons in the AppBar
           IconButton(
             icon: const Icon(Icons.emoji_events),
             onPressed: () {
@@ -402,22 +379,22 @@ class _PuzzleGameState extends State<PuzzleGame> {
               children: [
                 ListTile(
                   title: const Text('Beginners (3x3)'), // Translated
-                  selected: _difficulty == PuzzleDifficulty.easy, // Translated: facil to easy
+                  selected: _difficulty == PuzzleDifficulty.easy,
                   onTap: () {
                     setState(() {
-                      _difficulty = PuzzleDifficulty.easy; // Translated: facil to easy
-                      _initializeGame(); // Call the corrected _initializeGame version
+                      _difficulty = PuzzleDifficulty.easy;
+                      _initializeGame();
                       Navigator.pop(context);
                     });
                   },
                 ),
                 ListTile(
                   title: const Text('Advanced (5x5)'), // Translated
-                  selected: _difficulty == PuzzleDifficulty.hard, // Translated: dificil to hard
+                  selected: _difficulty == PuzzleDifficulty.hard,
                   onTap: () {
                     setState(() {
-                      _difficulty = PuzzleDifficulty.hard; // Translated: dificil to hard
-                      _initializeGame(); // Call the corrected _initializeGame version
+                      _difficulty = PuzzleDifficulty.hard;
+                      _initializeGame();
                       Navigator.pop(context);
                     });
                   },
@@ -428,79 +405,159 @@ class _PuzzleGameState extends State<PuzzleGame> {
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            const Text(
-              'Arrange the image!', // Translated
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Slide the pieces to complete the image', // Translated
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: gridSize,
-                  childAspectRatio: 1,
-                  crossAxisSpacing: 4,
-                  mainAxisSpacing: 4,
-                ),
-                itemCount: gridSize * gridSize,
-                itemBuilder: (context, index) {
-                  if (tiles[index] == 0) {
-                    return Container(color: Colors.grey[300]);
-                  }
+        child: LayoutBuilder( // Add LayoutBuilder for responsiveness
+          builder: (context, constraints) {
+            final double availableWidth = constraints.maxWidth;
+            double padding = 16.0; // Default padding
+            double spacing = 4.0; // Default spacing
 
-                  final tileNumber = tiles[index];
-                  final row = (tileNumber - 1) ~/ gridSize;
-                  final col = (tileNumber - 1) % gridSize;
+            // Adjust padding and spacing for smaller screens
+            if (availableWidth < 600) {
+              padding = 8.0;
+              spacing = 2.0;
+            }
 
-                  return GestureDetector(
-                    onTap: () => _moveTile(index),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.blue),
-                        borderRadius: BorderRadius.circular(8),
+            // Calculate max width for the puzzle grid to keep it square and centered
+            // Subtract horizontal padding from available width
+            final double maxGridDimension = availableWidth - (2 * padding);
+
+            // Determine the size of each tile dynamically
+            final double tileSize = (maxGridDimension - (gridSize - 1) * spacing) / gridSize;
+
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    children: const [
+                      Text(
+                        'Arrange the image!', // Translated
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          child: Transform.scale(
-                            scale: gridSize.toDouble(),
-                            alignment: Alignment(
-                              -1 + 2 * col / (gridSize - 1),
-                              -1 + 2 * row / (gridSize - 1),
+                      SizedBox(height: 4),
+                      Text(
+                        'Slide the pieces to complete the image', // Translated
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Center( // Center the puzzle grid
+                    child: _loadedPuzzleImage == null
+                        ? const CircularProgressIndicator() // Show loading indicator
+                        : Container(
+                            width: tileSize * gridSize + (gridSize - 1) * spacing, // Explicitly set grid container width
+                            height: tileSize * gridSize + (gridSize - 1) * spacing, // Explicitly set grid container height
+                            constraints: BoxConstraints( // Add constraints to limit max size on very large screens
+                                maxWidth: 700, // Max width for the puzzle grid
+                                maxHeight: 700, // Max height for the puzzle grid
                             ),
-                            child: SizedBox(
-                              width: MediaQuery.of(context).size.width,
-                              height: MediaQuery.of(context).size.width,
-                              child: Image(
-                                image: puzzleImage.image,
-                                fit: BoxFit.cover,
+                            child: GridView.builder(
+                              shrinkWrap: true, // Allow GridView to take only needed space
+                              physics: const NeverScrollableScrollPhysics(), // Disable scrolling in the grid
+                              padding: EdgeInsets.all(padding),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: gridSize, // gridSize (3 or 5) is correct for the puzzle grid
+                                childAspectRatio: 1, // Keep tiles square
+                                crossAxisSpacing: spacing,
+                                mainAxisSpacing: spacing,
                               ),
+                              itemCount: gridSize * gridSize,
+                              itemBuilder: (context, index) {
+                                if (tiles[index] == 0) {
+                                  return Container(color: Colors.grey[300]);
+                                }
+
+                                final tileNumber = tiles[index];
+                                // Calculate row and col of the ORIGINAL piece in the full image
+                                final originalRow = (tileNumber - 1) ~/ gridSize;
+                                final originalCol = (tileNumber - 1) % gridSize;
+
+                                return GestureDetector(
+                                  onTap: () => _moveTile(index),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.blue),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: CustomPaint( // Use CustomPaint for precise image slicing
+                                        painter: _PuzzlePiecePainter(
+                                          image: _loadedPuzzleImage!, // Pass the loaded ui.Image
+                                          tileNumber: tileNumber,
+                                          gridSize: gridSize,
+                                          originalRow: originalRow,
+                                          originalCol: originalCol,
+                                        ),
+                                        child: Container(), // CustomPaint handles drawing, child is optional
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
+}
+
+// Custom Painter for drawing individual puzzle pieces
+class _PuzzlePiecePainter extends CustomPainter {
+  final ui.Image image; // Now directly pass ui.Image
+  final int tileNumber;
+  final int gridSize;
+  final int originalRow;
+  final int originalCol;
+  
+  _PuzzlePiecePainter({
+    required this.image,
+    required this.tileNumber,
+    required this.gridSize,
+    required this.originalRow,
+    required this.originalCol,
+  });
 
   @override
-  void dispose() {
-    _timer?.cancel(); // Ensure the timer is cancelled if used
-    super.dispose();
+  void paint(Canvas canvas, Size size) {
+    if (tileNumber == 0) return; // Don't draw the empty tile
+
+    final imgWidth = image.width.toDouble();
+    final imgHeight = image.height.toDouble();
+
+    final pieceSrcWidth = imgWidth / gridSize;
+    final pieceSrcHeight = imgHeight / gridSize;
+
+    // Source rect in the original image (pixel coordinates)
+    final srcRect = Rect.fromLTWH(
+      originalCol * pieceSrcWidth,
+      originalRow * pieceSrcHeight,
+      pieceSrcWidth,
+      pieceSrcHeight,
+    );
+
+    // Destination rect on the canvas (local coordinates of the tile)
+    final dstRect = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    canvas.drawImageRect(image, srcRect, dstRect, Paint());
+  }
+
+  @override
+  bool shouldRepaint(covariant _PuzzlePiecePainter oldDelegate) {
+    // Repaint only if image, tileNumber, gridSize, or originalRow/Col changes
+    return oldDelegate.image != image ||
+           oldDelegate.tileNumber != tileNumber ||
+           oldDelegate.gridSize != gridSize ||
+           oldDelegate.originalRow != originalRow ||
+           oldDelegate.originalCol != originalCol;
   }
 }
