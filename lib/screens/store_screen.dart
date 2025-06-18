@@ -343,45 +343,41 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
     return ['All', ...subCategorias];
   }
 
-  // No longer need _monedasUsuario state variable as we'll use StreamBuilder
-  // late int _monedasUsuario;
+  int _currentMonedas = 0; // Local state to hold the current coin balance
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // No need to call _cargarMonedas() here anymore for initial state.
-    // StreamBuilder will handle the initial value.
     _cargarFavoritos();
+
+    // --- NEW: Listen to the CurrencyManager stream directly ---
+    CurrencyManager.initialize(); // Ensure CurrencyManager stream is initialized
+    CurrencyManager.allMonedasStream.listen((monedasMap) {
+      if (monedasMap.containsKey(widget.usuario)) {
+        setState(() {
+          _currentMonedas = monedasMap[widget.usuario]!;
+        });
+      }
+    });
+    // Trigger an initial load to ensure the stream emits the current value
+    CurrencyManager.getMonedas(widget.usuario);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // No need to dispose CurrencyManager stream here, it's global
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // No need to call _cargarMonedas() here anymore, StreamBuilder handles it.
-      // We might want to trigger a refresh of the stream if necessary,
-      // but the CurrencyManager should handle adding values from SharedPreferences
-      // when getMonedasStream is first called or if add/gastar methods are used.
-      CurrencyManager.getMonedas(widget.usuario); // Just to ensure latest value is pushed to stream if it's not already.
+      // When app resumes, trigger a re-read to update the stream with latest SharedPreferences data
+      CurrencyManager.getMonedas(widget.usuario);
     }
   }
-
-  // --- _cargarMonedas FUNCTION REMOVED (mostly) ---
-  // The logic is now handled by CurrencyManager's stream and StreamBuilder
-  // Future<void> _cargarMonedas() async {
-  //   final monedas = await CurrencyManager.getMonedas(widget.usuario);
-  //   if (mounted) {
-  //     setState(() {
-  //       _monedasUsuario = monedas;
-  //     });
-  //   }
-  // }
 
   Future<void> _cargarFavoritos() async {
     final prefs = await SharedPreferences.getInstance();
@@ -436,12 +432,9 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
     final String nombreProducto = producto['nombre'];
     final String imagenProducto = producto['imagen'];
 
-    // Before buying, get the current coins from the CurrencyManager's getMonedas (Future-based)
-    // to check balance, as _monedasUsuario is no longer a state variable.
-    // The StreamBuilder will react to the change in CurrencyManager after the purchase.
-    int currentCoinsBeforePurchase = await CurrencyManager.getMonedas(widget.usuario);
-
-    if (currentCoinsBeforePurchase >= precio) {
+    // Use the locally held _currentMonedas for the check,
+    // which is updated by the stream.
+    if (_currentMonedas >= precio) {
       bool compraExitosa = await CurrencyManager.gastarMonedas(precio, widget.usuario);
       if (compraExitosa) {
         if (!mounted) return;
@@ -459,8 +452,6 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
             itemsCompradosStrings,
           );
         }
-
-        // _cargarMonedas(); // No longer needed, stream handles it
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -548,29 +539,18 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // --- MODIFIED: Use StreamBuilder for real-time coin updates ---
-                  StreamBuilder<int>(
-                    stream: CurrencyManager.getMonedasStream(widget.usuario),
-                    initialData: 0, // Provide an initial value
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        return Row(
-                          children: [
-                            Text(
-                              'Coins: ${snapshot.data}', // Display coins from the stream
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.purple,
-                              ),
-                            ),
-                          ],
-                        );
-                      } else if (snapshot.hasError) {
-                        return Text('Error: ${snapshot.error}');
-                      }
-                      return const CircularProgressIndicator(); // Loading indicator
-                    },
+                  // --- MODIFIED: Use the local _currentMonedas state ---
+                  Row(
+                    children: [
+                      Text(
+                        'Coins: $_currentMonedas', // Display coins from local state
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple,
+                        ),
+                      ),
+                    ],
                   ),
                   Flexible(
                     child: Row(
@@ -737,6 +717,9 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                     itemCount: _productosFiltrados.length,
                     itemBuilder: (context, index) {
                       final producto = _productosFiltrados[index];
+                      // Determine if the buy button should be enabled
+                      final bool canAfford = _currentMonedas >= producto['precio'];
+
                       return Card(
                         elevation: 5,
                         shape: RoundedRectangleBorder(
@@ -844,19 +827,17 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                                     SizedBox(
                                       width: double.infinity,
                                       child: ElevatedButton(
-                                        onPressed:
-                                            // We now check the balance *at the time of the button press*
-                                            // by listening to the stream within the widget tree.
-                                            // This requires wrapping the button in a StreamBuilder as well.
-                                            // For simplicity, we will check balance just before _comprarProducto
-                                            // and rely on the snackbar feedback for insufficient funds.
-                                            // The `snapshot.data` from the outer StreamBuilder for coins
-                                            // will provide the current balance for this check.
-                                            // We pass the current balance from the snapshot down to the button builder.
-                                            null, // Temporarily disable to explain
+                                        // Enable/disable based on current balance
+                                        onPressed: canAfford
+                                            ? () {
+                                                _comprarProducto(
+                                                  producto,
+                                                );
+                                              }
+                                            : null,
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor:
-                                              Theme.of(context).colorScheme.primary,
+                                              canAfford ? Theme.of(context).colorScheme.primary : Colors.grey, // Gray out if cannot afford
                                           foregroundColor: Colors.white,
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(15),

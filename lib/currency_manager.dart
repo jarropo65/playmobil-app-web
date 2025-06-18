@@ -12,40 +12,47 @@ class CurrencyManager {
   // These are internal keys, so they remain as they are for logic, but we include both Spanish and English normalized versions.
   static const List<String> knownDifficulties = ['facil', 'dificil', 'normal', 'easy', 'hard', 'fácil', 'difícil'];
 
-  // --- NEW: StreamController for real-time coin updates ---
-  // A map to hold StreamControllers for each user. This makes it scalable for multiple users.
-  static final Map<String, StreamController<int>> _monedasStreamControllers = {};
+  // --- MODIFIED: Use a single static StreamController for all coin updates ---
+  // A single StreamController that broadcasts updates to all listeners.
+  // We make it late and private, and provide a static getter for its stream.
+  static late StreamController<Map<String, int>> _monedasStreamController;
+  static bool _isInitialized = false;
 
-  // Method to get the Stream of coins for a specific user
-  static Stream<int> getMonedasStream(String usuario) {
-    if (!_monedasStreamControllers.containsKey(usuario)) {
-      _monedasStreamControllers[usuario] = StreamController<int>.broadcast();
-      // Load initial coins for this user and add to stream
-      _cargarMonedasIniciales(usuario);
+  // Initialize the StreamController if it hasn't been already
+  static void initialize() {
+    if (!_isInitialized) {
+      _monedasStreamController = StreamController<Map<String, int>>.broadcast();
+      _isInitialized = true;
+      debugPrint('CurrencyManager: StreamController initialized.');
     }
-    return _monedasStreamControllers[usuario]!.stream;
   }
 
-  // Private method to load initial coins and add to the stream
-  static Future<void> _cargarMonedasIniciales(String usuario) async {
+  // Get the stream of all user coins.
+  // The stream will emit a Map<String, int> where key is userId and value is coins.
+  static Stream<Map<String, int>> get allMonedasStream {
+    initialize(); // Ensure the controller is initialized
+    return _monedasStreamController.stream;
+  }
+
+  // Helper method to notify all listeners (through the stream) about coin changes for a specific user
+  static Future<void> _notificarCambioMonedas(String usuario) async {
     final prefs = await SharedPreferences.getInstance();
-    final int initialMonedas = prefs.getInt('$_monedasKeyPrefix$usuario') ?? 0;
-    _monedasStreamControllers[usuario]?.add(initialMonedas);
-    debugPrint('CurrencyManager: Loaded initial coins for $usuario: $initialMonedas');
-  }
-
-  // Helper method to notify all listeners (through the stream) about coin changes
-  static void _notificarCambioMonedas(String usuario, int nuevoTotal) {
-    _monedasStreamControllers[usuario]?.add(nuevoTotal);
-    debugPrint('CurrencyManager: Notified new coin total for $usuario: $nuevoTotal');
+    final int currentMonedas = prefs.getInt('$_monedasKeyPrefix$usuario') ?? 0;
+    if (_monedasStreamController.isClosed) {
+      debugPrint('CurrencyManager: Attempted to add to a closed stream for $usuario. Reinitializing...');
+      initialize(); // Reinitialize if somehow closed (shouldn't happen in normal app lifecycle)
+    }
+    // Emit a map containing only the updated user's coins for efficiency
+    _monedasStreamController.add({usuario: currentMonedas});
+    debugPrint('CurrencyManager: Notified new coin total for $usuario: $currentMonedas');
   }
 
   // --- MODIFIED: getMonedas now also triggers a stream update on load ---
   static Future<int> getMonedas(String usuario) async {
     final prefs = await SharedPreferences.getInstance();
     final int currentMonedas = prefs.getInt('$_monedasKeyPrefix$usuario') ?? 0;
-    // Also ensure the stream is initialized and updated with the current value
-    _notificarCambioMonedas(usuario, currentMonedas);
+    // Notify the stream with the current value whenever it's requested
+    await _notificarCambioMonedas(usuario);
     return currentMonedas;
   }
 
@@ -56,7 +63,7 @@ class CurrencyManager {
     int newTotal = currentMonedas + cantidad;
     await prefs.setInt('$_monedasKeyPrefix$usuario', newTotal);
     debugPrint('CurrencyManager: Added $cantidad coins to $usuario. Total: $newTotal');
-    _notificarCambioMonedas(usuario, newTotal); // Notify listeners
+    await _notificarCambioMonedas(usuario); // Notify listeners
   }
 
   // --- MODIFIED: gastarMonedas now notifies listeners ---
@@ -68,7 +75,7 @@ class CurrencyManager {
       int newTotal = currentMonedas - cantidad;
       await prefs.setInt('$_monedasKeyPrefix$usuario', newTotal);
       debugPrint('CurrencyManager: Spent $cantidad coins from $usuario. Remaining: $newTotal');
-      _notificarCambioMonedas(usuario, newTotal); // Notify listeners
+      await _notificarCambioMonedas(usuario); // Notify listeners
       return true;
     } else {
       debugPrint('CurrencyManager: Insufficient funds for $usuario. Tried to spend $cantidad, has $currentMonedas.');
@@ -184,10 +191,12 @@ class CurrencyManager {
     }
   }
 
-  // --- NEW: Dispose method for StreamControllers to prevent memory leaks ---
+  // --- MODIFIED: Dispose method now closes the single StreamController ---
   static void dispose() {
-    _monedasStreamControllers.values.forEach((controller) => controller.close());
-    _monedasStreamControllers.clear();
-    debugPrint('CurrencyManager: All coin streams disposed.');
+    if (_isInitialized && !_monedasStreamController.isClosed) {
+      _monedasStreamController.close();
+      _isInitialized = false;
+      debugPrint('CurrencyManager: Main coin stream disposed.');
+    }
   }
 }
