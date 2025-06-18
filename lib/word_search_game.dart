@@ -1,6 +1,6 @@
 // lib/word_search_game.dart
 import 'package:flutter/material.dart';
-import 'dart:math' as math; // Import math with a prefix to avoid conflicts
+import 'dart:math'; // MODIFIED: Removed 'as math' alias
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'currency_manager.dart'; // Import CurrencyManager
@@ -81,7 +81,7 @@ class _WordSearchGameState extends State<WordSearchGame> {
     _juegoTerminado = false;
     // _startTimer(); // Uncomment if a timer is used
 
-    Random random = math.Random(); // CORRECTED: Use math.Random()
+    Random random = Random(); // MODIFIED: Used Random directly
     for (String word in _words) {
       bool placed = false;
       int attempts = 0;
@@ -425,8 +425,8 @@ class _WordSearchGameState extends State<WordSearchGame> {
 
             // Take the minimum of available width and available height for the grid,
             // then limit its maximum size for very large screens.
-            double gridDimension = math.min(availableWidth, gridAvailableHeight);
-            gridDimension = math.min(gridDimension, 700.0); // Limit max grid size for very large screens (e.g., 700px)
+            double gridDimension = min(availableWidth, gridAvailableHeight); // MODIFIED: Use min directly
+            gridDimension = min(gridDimension, 700.0); // MODIFIED: Use min directly
 
             // Calculate individual cell size based on the grid dimension and number of columns/rows
             // Account for spacing
@@ -436,7 +436,7 @@ class _WordSearchGameState extends State<WordSearchGame> {
 
             // Adjust font size based on cell size
             // Ensure font is not too small (min 10) and not too large (max 24)
-            final double fontSize = math.max(10.0, math.min(24.0, cellSize * 0.6)); // Proportional to cell size
+            final double fontSize = max(10.0, min(24.0, cellSize * 0.6)); // MODIFIED: Use max and min directly
 
 
             return Column(
