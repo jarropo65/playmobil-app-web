@@ -1,6 +1,7 @@
 // lib/currency_manager.dart
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart'; // Import for debugPrint
+import 'dart:async'; // Import for StreamController
 
 class CurrencyManager {
   static const String _monedasKeyPrefix = 'monedas_';
@@ -11,28 +12,66 @@ class CurrencyManager {
   // These are internal keys, so they remain as they are for logic, but we include both Spanish and English normalized versions.
   static const List<String> knownDifficulties = ['facil', 'dificil', 'normal', 'easy', 'hard', 'fácil', 'difícil'];
 
-  static Future<int> getMonedas(String usuario) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('$_monedasKeyPrefix$usuario') ?? 0;
+  // --- NEW: StreamController for real-time coin updates ---
+  // A map to hold StreamControllers for each user. This makes it scalable for multiple users.
+  static final Map<String, StreamController<int>> _monedasStreamControllers = {};
+
+  // Method to get the Stream of coins for a specific user
+  static Stream<int> getMonedasStream(String usuario) {
+    if (!_monedasStreamControllers.containsKey(usuario)) {
+      _monedasStreamControllers[usuario] = StreamController<int>.broadcast();
+      // Load initial coins for this user and add to stream
+      _cargarMonedasIniciales(usuario);
+    }
+    return _monedasStreamControllers[usuario]!.stream;
   }
 
+  // Private method to load initial coins and add to the stream
+  static Future<void> _cargarMonedasIniciales(String usuario) async {
+    final prefs = await SharedPreferences.getInstance();
+    final int initialMonedas = prefs.getInt('$_monedasKeyPrefix$usuario') ?? 0;
+    _monedasStreamControllers[usuario]?.add(initialMonedas);
+    debugPrint('CurrencyManager: Loaded initial coins for $usuario: $initialMonedas');
+  }
+
+  // Helper method to notify all listeners (through the stream) about coin changes
+  static void _notificarCambioMonedas(String usuario, int nuevoTotal) {
+    _monedasStreamControllers[usuario]?.add(nuevoTotal);
+    debugPrint('CurrencyManager: Notified new coin total for $usuario: $nuevoTotal');
+  }
+
+  // --- MODIFIED: getMonedas now also triggers a stream update on load ---
+  static Future<int> getMonedas(String usuario) async {
+    final prefs = await SharedPreferences.getInstance();
+    final int currentMonedas = prefs.getInt('$_monedasKeyPrefix$usuario') ?? 0;
+    // Also ensure the stream is initialized and updated with the current value
+    _notificarCambioMonedas(usuario, currentMonedas);
+    return currentMonedas;
+  }
+
+  // --- MODIFIED: addMonedas now notifies listeners ---
   static Future<void> addMonedas(int cantidad, String usuario) async {
     final prefs = await SharedPreferences.getInstance();
     int currentMonedas = prefs.getInt('$_monedasKeyPrefix$usuario') ?? 0;
-    await prefs.setInt('$_monedasKeyPrefix$usuario', currentMonedas + cantidad);
-    debugPrint('CurrencyManager: Added $cantidad coins to $usuario. Total: ${currentMonedas + cantidad}'); // Translated
+    int newTotal = currentMonedas + cantidad;
+    await prefs.setInt('$_monedasKeyPrefix$usuario', newTotal);
+    debugPrint('CurrencyManager: Added $cantidad coins to $usuario. Total: $newTotal');
+    _notificarCambioMonedas(usuario, newTotal); // Notify listeners
   }
 
+  // --- MODIFIED: gastarMonedas now notifies listeners ---
   static Future<bool> gastarMonedas(int cantidad, String usuario) async {
     final prefs = await SharedPreferences.getInstance();
     int currentMonedas = prefs.getInt('$_monedasKeyPrefix$usuario') ?? 0;
 
     if (currentMonedas >= cantidad) {
-      await prefs.setInt('$_monedasKeyPrefix$usuario', currentMonedas - cantidad);
-      debugPrint('CurrencyManager: Spent $cantidad coins from $usuario. Remaining: ${currentMonedas - cantidad}'); // Translated
+      int newTotal = currentMonedas - cantidad;
+      await prefs.setInt('$_monedasKeyPrefix$usuario', newTotal);
+      debugPrint('CurrencyManager: Spent $cantidad coins from $usuario. Remaining: $newTotal');
+      _notificarCambioMonedas(usuario, newTotal); // Notify listeners
       return true;
     } else {
-      debugPrint('CurrencyManager: Insufficient funds for $usuario. Tried to spend $cantidad, has $currentMonedas.'); // Translated
+      debugPrint('CurrencyManager: Insufficient funds for $usuario. Tried to spend $cantidad, has $currentMonedas.');
       return false;
     }
   }
@@ -41,7 +80,6 @@ class CurrencyManager {
     int monedasBase = 0;
     String normalizedDifficulty = dificultad.toLowerCase();
     normalizedDifficulty = normalizedDifficulty.replaceAll('á', 'a').replaceAll('é', 'e').replaceAll('í', 'i').replaceAll('ó', 'o').replaceAll('ú', 'u');
-
 
     switch (normalizedDifficulty) {
       case 'facil':
@@ -69,7 +107,6 @@ class CurrencyManager {
     // Normalize difficulty to lowercase and without accents for SAVING
     String normalizedDificultad = dificultad.toLowerCase();
     normalizedDificultad = normalizedDificultad.replaceAll('á', 'a').replaceAll('é', 'e').replaceAll('í', 'i').replaceAll('ó', 'o').replaceAll('ú', 'u');
-
 
     debugPrint('CurrencyManager: [SAVE] Attempting to save score:'); // Translated
     debugPrint('  Game ID: "$gameNameIdentifier"');
@@ -145,5 +182,12 @@ class CurrencyManager {
       await prefs.remove(key);
       debugPrint('  Cleared key: "$key"'); // Translated
     }
+  }
+
+  // --- NEW: Dispose method for StreamControllers to prevent memory leaks ---
+  static void dispose() {
+    _monedasStreamControllers.values.forEach((controller) => controller.close());
+    _monedasStreamControllers.clear();
+    debugPrint('CurrencyManager: All coin streams disposed.');
   }
 }

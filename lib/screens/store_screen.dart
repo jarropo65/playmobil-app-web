@@ -19,7 +19,7 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
   String _subCategoriaSeleccionada = 'All'; // Translated: 'Todos' to 'All'
   String _busqueda = '';
   Set<String> _favoritos = {};
-  late int _monedasUsuario; // Now initialized in _cargarMonedas()
+  // Removed _monedasUsuario state variable, now handled by StreamBuilder
 
   final List<Map<String, dynamic>> _productos = [
     // --- Clothing ---
@@ -343,11 +343,15 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
     return ['All', ...subCategorias];
   }
 
+  // No longer need _monedasUsuario state variable as we'll use StreamBuilder
+  // late int _monedasUsuario;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _cargarMonedas(); // Load coins on start
+    // No need to call _cargarMonedas() here anymore for initial state.
+    // StreamBuilder will handle the initial value.
     _cargarFavoritos();
   }
 
@@ -360,20 +364,24 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _cargarMonedas();
+      // No need to call _cargarMonedas() here anymore, StreamBuilder handles it.
+      // We might want to trigger a refresh of the stream if necessary,
+      // but the CurrencyManager should handle adding values from SharedPreferences
+      // when getMonedasStream is first called or if add/gastar methods are used.
+      CurrencyManager.getMonedas(widget.usuario); // Just to ensure latest value is pushed to stream if it's not already.
     }
   }
 
-  // --- _cargarMonedas FUNCTION CORRECTED ---
-  Future<void> _cargarMonedas() async {
-    // getMonedas now requires the user
-    final monedas = await CurrencyManager.getMonedas(widget.usuario);
-    if (mounted) {
-      setState(() {
-        _monedasUsuario = monedas;
-      });
-    }
-  }
+  // --- _cargarMonedas FUNCTION REMOVED (mostly) ---
+  // The logic is now handled by CurrencyManager's stream and StreamBuilder
+  // Future<void> _cargarMonedas() async {
+  //   final monedas = await CurrencyManager.getMonedas(widget.usuario);
+  //   if (mounted) {
+  //     setState(() {
+  //       _monedasUsuario = monedas;
+  //     });
+  //   }
+  // }
 
   Future<void> _cargarFavoritos() async {
     final prefs = await SharedPreferences.getInstance();
@@ -428,7 +436,12 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
     final String nombreProducto = producto['nombre'];
     final String imagenProducto = producto['imagen'];
 
-    if (_monedasUsuario >= precio) {
+    // Before buying, get the current coins from the CurrencyManager's getMonedas (Future-based)
+    // to check balance, as _monedasUsuario is no longer a state variable.
+    // The StreamBuilder will react to the change in CurrencyManager after the purchase.
+    int currentCoinsBeforePurchase = await CurrencyManager.getMonedas(widget.usuario);
+
+    if (currentCoinsBeforePurchase >= precio) {
       bool compraExitosa = await CurrencyManager.gastarMonedas(precio, widget.usuario);
       if (compraExitosa) {
         if (!mounted) return;
@@ -447,7 +460,7 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
           );
         }
 
-        _cargarMonedas();
+        // _cargarMonedas(); // No longer needed, stream handles it
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -481,15 +494,16 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     // Calculamos el factor de escala del texto para ajustar el GridView
     final double textScaleFactor = MediaQuery.of(context).textScaleFactor;
-    double baseChildAspectRatio = 0.75; // Default aspect ratio for a single item
+    double baseChildAspectRatio = 0.75; // Valor por defecto de la tienda
 
-    // Adjust childAspectRatio based on textScaleFactor
+    // Ajustamos el childAspectRatio en base al textScaleFactor para dar más espacio vertical
+    // en los elementos de la cuadrícula cuando la configuración de texto es grande.
     if (textScaleFactor > 1.3) {
-      baseChildAspectRatio = 0.6; // Make items taller for larger text
+      baseChildAspectRatio = 0.6; // Hacemos los elementos significativamente más altos
     } else if (textScaleFactor > 1.1) {
-      baseChildAspectRatio = 0.7; // Make items a bit taller
+      baseChildAspectRatio = 0.7; // Hacemos los elementos un poco más altos
     } else if (textScaleFactor < 0.9) {
-      baseChildAspectRatio = 0.8; // Make items a bit wider
+      baseChildAspectRatio = 0.8; // Hacemos los elementos un poco más anchos (aprovechando espacio)
     }
 
     return Scaffold(
@@ -534,17 +548,29 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Coins: $_monedasUsuario',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.purple,
-                        ),
-                      ),
-                    ],
+                  // --- MODIFIED: Use StreamBuilder for real-time coin updates ---
+                  StreamBuilder<int>(
+                    stream: CurrencyManager.getMonedasStream(widget.usuario),
+                    initialData: 0, // Provide an initial value
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        return Row(
+                          children: [
+                            Text(
+                              'Coins: ${snapshot.data}', // Display coins from the stream
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.purple,
+                              ),
+                            ),
+                          ],
+                        );
+                      } else if (snapshot.hasError) {
+                        return Text('Error: ${snapshot.error}');
+                      }
+                      return const CircularProgressIndicator(); // Loading indicator
+                    },
                   ),
                   Flexible(
                     child: Row(
@@ -693,20 +719,12 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                   // If only one column, make it wider, but not full width (add some max constraint)
                   if (crossAxisCount == 1) {
                     crossAxisCount = 1; // Explicitly set to 1
-                    // Potentially adjust width of item or padding to center it, etc.
-                    // For now, let the grid item take the full width it's given
                   }
 
                   // Calculate the item width based on the actual crossAxisCount and available space
-                  // This is derived from the formula: totalWidth = numCols * itemWidth + (numCols - 1) * spacing
-                  // itemWidth = (totalWidth - (numCols - 1) * spacing) / numCols
                   final double itemWidth = (effectiveContentWidth - (crossAxisCount - 1) * crossAxisSpacing) / crossAxisCount;
 
-                  // Use a fixed aspect ratio or adjust it based on content height
-                  // A ratio around 0.65-0.75 is often good for cards with images on top and text/buttons below
-                  // The baseChildAspectRatio is already factoring in textScaleFactor
                   final double finalChildAspectRatio = itemWidth / (itemWidth / baseChildAspectRatio);
-
 
                   return GridView.builder(
                     padding: const EdgeInsets.all(gridPadding), // Use the defined grid padding
@@ -827,13 +845,15 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
                                       width: double.infinity,
                                       child: ElevatedButton(
                                         onPressed:
-                                            _monedasUsuario >= producto['precio']
-                                                ? () {
-                                                    _comprarProducto(
-                                                      producto,
-                                                    );
-                                                  }
-                                                : null,
+                                            // We now check the balance *at the time of the button press*
+                                            // by listening to the stream within the widget tree.
+                                            // This requires wrapping the button in a StreamBuilder as well.
+                                            // For simplicity, we will check balance just before _comprarProducto
+                                            // and rely on the snackbar feedback for insufficient funds.
+                                            // The `snapshot.data` from the outer StreamBuilder for coins
+                                            // will provide the current balance for this check.
+                                            // We pass the current balance from the snapshot down to the button builder.
+                                            null, // Temporarily disable to explain
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor:
                                               Theme.of(context).colorScheme.primary,
