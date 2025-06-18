@@ -429,7 +429,7 @@ class _WordGameState extends State<WordGame> {
 
             // Adjust font size based on cell size.
             // Ensure font is not too small (e.g., 18) and not too large (e.g., 40)
-            final double fontSize = math.max(18.0, math.min(40.0, cellSize * 0.5)); // 0.5 is an arbitrary scaling factor for text size relative to cell size
+            final double fontSize = max(18.0, min(40.0, cellSize * 0.5)); // MODIFIED: Use max and min directly
 
             return Column(
               children: [
