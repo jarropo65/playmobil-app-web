@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'game_screen.dart';
+import 'game_screen.dart'; // Mantener si se usa en GameSelectionScreen
 import 'screens/achievements_screen.dart';
 import 'screens/scores_screen.dart';
 import 'screens/store_screen.dart';
-import 'puzzle_game.dart';
-import 'word_search_game.dart';
-import 'word_game.dart';
+import 'puzzle_game.dart'; // Mantener si se usa en GameSelectionScreen
+import 'word_search_game.dart'; // Mantener si se usa en GameSelectionScreen
+import 'word_game.dart'; // Mantener si se usa en GameSelectionScreen
 import 'screens/profile_screen.dart';
 import 'achievements.dart'; // Maintain import, even if not directly used here
-import 'screens/reading_comprehension_screen.dart';
-import 'screens/comic_game_screen.dart';
+import 'screens/reading_comprehension_screen.dart'; // Mantener si se usa en GameSelectionScreen
+import 'screens/comic_game_screen.dart'; // Mantener si se usa en GameSelectionScreen
 import 'screens/game_selection_screen.dart'; // IMPORTANT! Import of the new game selection screen
-import 'package:auto_size_text/auto_size_text.dart'; // <--- NUEVA IMPORTACIÓN
+import 'package:auto_size_text/auto_size_text.dart';
 
 void main() {
   runApp(const MyApp());
@@ -308,7 +308,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    // This is the build method for LoginPageState
+    // MODIFICACION AQUI: Para que la LoginPage sea responsiva
     return Container(
       decoration: const BoxDecoration(
         image: DecorationImage(
@@ -324,7 +324,7 @@ class _LoginPageState extends State<LoginPage> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
-              // Navigate to the Login screen and remove all previous routes
+              // Navegar a la pantalla de inicio de sesión y eliminar todas las rutas anteriores
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => const LoginPage()),
                 (Route<dynamic> route) => false,
@@ -332,74 +332,85 @@ class _LoginPageState extends State<LoginPage> {
             },
           ),
         ),
-        body: Stack(
-          children: [
-            Align(
-              alignment: Alignment.center,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).size.height * 0.65,
-                ),
+        body: Center( // Usamos Center para centrar el contenido principal
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center, // Centra verticalmente los hijos
+            children: [
+              // Logo de Playmobil
+              Flexible( // Flexible para que la imagen se adapte
+                flex: 3, // Ocupa un poco más de espacio
                 child: Image.asset(
                   'assets/images/logo/playmobil_logo.png',
-                  height: 150,
+                  height: MediaQuery.of(context).size.height * 0.35, // Altura relativa a la pantalla
+                  fit: BoxFit.contain,
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _mostrarModalInicioSesion,
-                    icon: const Icon(Icons.login, color: Colors.white),
-                    label: const Text(
-                      'Log In',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+              const SizedBox(height: 40), // Espacio entre el logo y los botones
+              // Botones de inicio de sesión/registro
+              Flexible( // Flexible para que los botones se adapten
+                flex: 1, // Ocupa menos espacio que la imagen
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center, // Centra los botones horizontalmente
+                    children: [
+                      Expanded( // Botones expandidos para tomar el espacio disponible
+                        child: ElevatedButton.icon(
+                          onPressed: _mostrarModalInicioSesion,
+                          icon: const Icon(Icons.login, color: Colors.white),
+                          label: const Text(
+                            'Log In',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
+                      const SizedBox(width: 16),
+                      Expanded( // Botones expandidos para tomar el espacio disponible
+                        child: ElevatedButton.icon(
+                          onPressed: _mostrarModalRegistro,
+                          icon: const Icon(Icons.person_add, color: Colors.white),
+                          label: const Text(
+                            'Register',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.secondary,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                          ),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: _mostrarModalRegistro,
-                    icon: const Icon(Icons.person_add, color: Colors.white),
-                    label: const Text(
-                      'Register',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.secondary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+              // Añadir un Spacer si se quiere empujar el contenido hacia el centro o arriba/abajo
+              // Spacer(),
+            ],
+          ),
         ),
       ),
     );
@@ -530,32 +541,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculamos el factor de aspecto de los elementos del GridView de forma dinámica
-    final double textScaleFactor = MediaQuery.of(context).textScaleFactor;
-    double childAspectRatio = 1.0; // Valor por defecto
-
-    // Ajustamos el childAspectRatio en base al textScaleFactor.
-    // Una relación más pequeña (ej. 0.8) significa que el alto es mayor que el ancho.
-    // Esto da más espacio vertical a los elementos de la cuadrícula.
-    if (textScaleFactor > 1.3) { // Para tamaños de visualización muy grandes
-      childAspectRatio = 0.7; // Hacemos los elementos más altos
-    } else if (textScaleFactor > 1.1) { // Para tamaños de visualización grandes
-      childAspectRatio = 0.85; // Hacemos los elementos ligeramente más altos
-    } else if (textScaleFactor < 0.9) { // Para tamaños de visualización pequeños
-      childAspectRatio = 1.1; // Hacemos los elementos un poco más anchos/menos altos
-    } else {
-      childAspectRatio = 1.0; // Estándar
-    }
-
-    // Una alternativa es basarse directamente en el ancho del dispositivo
-    // final double screenWidth = MediaQuery.of(context).size.width;
-    // if (screenWidth < 360) { // Dispositivos muy estrechos
-    //   childAspectRatio = 0.7;
-    // } else if (screenWidth < 600) { // Teléfonos estándar
-    //   childAspectRatio = 0.8;
-    // }
-
-
     return Container(
       decoration: const BoxDecoration(
         image: DecorationImage(
@@ -572,7 +557,7 @@ class _HomePageState extends State<HomePage> {
               // Navigate to the Login screen and remove all previous routes
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => const LoginPage()),
-                    (Route<dynamic> route) => false,
+                (Route<dynamic> route) => false,
               );
             },
           ),
@@ -581,67 +566,94 @@ class _HomePageState extends State<HomePage> {
           Theme.of(context).colorScheme.primary.withOpacity(0.8),
         ),
         drawer: _buildDrawer(context), // Ensure the Drawer is built here
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: GridView.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: childAspectRatio, // <--- APLICAMOS EL childAspectRatio DINÁMICO
-            children: [
-              _buildGameOption(context, 'Play', 'play_icon.png', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        GameSelectionScreen(usuario: widget.usuario),
-                  ),
-                );
-              }),
-              _buildGameOption(context, 'Store', 'store_icon.png', () async {
-                final prefs = await SharedPreferences.getInstance();
-                final puntos = prefs.getInt('monedas_${widget.usuario}') ?? 0;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => StoreScreen(
-                      usuario: widget.usuario,
-                      puntos: puntos,
-                    ),
-                  ),
-                );
-              }),
-              _buildGameOption(context, 'Scores', 'scores_icon.png', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => ScoresScreen(usuario: widget.usuario)),
-                );
-              }),
-              _buildGameOption(context, 'Achievements', 'achievements_icon.png', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        AchievementsScreen(usuario: widget.usuario),
-                  ),
-                );
-              }),
-              _buildGameOption(context, 'Profile', 'profile_icon.png', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ProfileScreen(usuario: widget.usuario),
-                  ),
-                );
-              }),
-              _buildGameOption(context, 'Log Out', 'logout_icon.png', () {
-                // Option to log out
-                _cerrarSesion();
-              }),
-            ],
-          ),
+        body: LayoutBuilder( // Usamos LayoutBuilder para adaptar el GridView
+          builder: (context, constraints) {
+            final double screenWidth = constraints.maxWidth;
+            int crossAxisCount = 2; // Por defecto para pantallas pequeñas
+
+            if (screenWidth > 1200) {
+              crossAxisCount = 4; // 4 columnas para pantallas muy grandes (escritorio grande)
+            } else if (screenWidth > 800) {
+              crossAxisCount = 3; // 3 columnas para tabletas o monitores medianos
+            } else {
+              crossAxisCount = 2; // 2 columnas para móviles o ventanas estrechas
+            }
+
+            // Ajustamos el childAspectRatio para que los elementos no sean ni muy anchos ni muy altos
+            // Un valor más bajo hace el ítem más alto (útil para texto grande), un valor más alto lo hace más ancho.
+            double childAspectRatio = 1.0; 
+            if (screenWidth < 600) { // Móviles
+              childAspectRatio = 0.9; // Ligeramente más altos para mejor legibilidad en pantallas pequeñas
+            } else if (screenWidth < 900) { // Tabletas en vertical
+              childAspectRatio = 1.1; // Más anchos
+            } else { // Escritorio
+              childAspectRatio = 1.2; // Aún más anchos
+            }
+
+
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: GridView.count(
+                crossAxisCount: crossAxisCount, // <-- APLICAMOS EL crossAxisCount DINÁMICO
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: childAspectRatio, // <-- APLICAMOS EL childAspectRatio DINÁMICO
+                children: [
+                  _buildGameOption(context, 'Play', 'play_icon.png', () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                        const GameSelectionScreen(usuario: ''), // Asegúrate de pasar el usuario si GameSelectionScreen lo necesita
+                      ),
+                    );
+                  }),
+                  _buildGameOption(context, 'Store', 'store_icon.png', () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    final puntos = prefs.getInt('monedas_${widget.usuario}') ?? 0;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => StoreScreen(
+                          usuario: widget.usuario,
+                          puntos: puntos,
+                        ),
+                      ),
+                    );
+                  }),
+                  _buildGameOption(context, 'Scores', 'scores_icon.png', () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => ScoresScreen(usuario: widget.usuario)),
+                    );
+                  }),
+                  _buildGameOption(context, 'Achievements', 'achievements_icon.png', () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            AchievementsScreen(usuario: widget.usuario),
+                      ),
+                    );
+                  }),
+                  _buildGameOption(context, 'Profile', 'profile_icon.png', () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            ProfileScreen(usuario: widget.usuario),
+                      ),
+                    );
+                  }),
+                  _buildGameOption(context, 'Log Out', 'logout_icon.png', () {
+                    // Option to log out
+                    _cerrarSesion();
+                  }),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
