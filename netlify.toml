@@ -1,0 +1,18 @@
+[build]
+  command = "flutter build web --base-href /" # Comando de construcción simplificado
+  publish = "build/web"
+
+[build.environment]
+  # Especificamos la versión de Flutter deseada.
+  # El plugin usará esto para instalar la versión correcta.
+  FLUTTER_VERSION = "3.32.4"
+  FLUTTER_CHANNEL = "stable"
+
+[[plugins]]
+  # Usamos el plugin oficial de Netlify para Flutter
+  package = "netlify-plugin-flutter"
+
+  [plugins.inputs]
+    # Opcional: Si quisiéramos cambiar el renderizador de web (por defecto es html),
+    # lo haríamos aquí. Pero para empezar, usaremos el predeterminado.
+    # web_renderer = "canvaskit" # Descomentar si realmente necesita canvaskit y funciona
