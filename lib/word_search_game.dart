@@ -81,7 +81,7 @@ class _WordSearchGameState extends State<WordSearchGame> {
     _juegoTerminado = false;
     // _startTimer(); // Uncomment if a timer is used
 
-    Random random = Random();
+    Random random = math.Random(); // CORRECTED: Use math.Random()
     for (String word in _words) {
       bool placed = false;
       int attempts = 0;
