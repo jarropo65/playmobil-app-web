@@ -1,6 +1,6 @@
 // lib/word_game.dart
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'dart:math'; // Keeping this direct import as previously resolved
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'currency_manager.dart';
@@ -409,190 +409,225 @@ class _WordGameState extends State<WordGame> {
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 100.0), // Increased bottom padding
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: LayoutBuilder( // Add LayoutBuilder here
+          builder: (context, constraints) {
+            final double availableWidth = constraints.maxWidth;
+            // Number of columns in the letter grid is fixed at 5
+            const int crossAxisCount = 5;
+            const double gridSpacing = 8.0; // mainAxisSpacing and crossAxisSpacing
+
+            // Calculate ideal cell size, considering padding within the Card and grid spacing
+            // The Card has 16.0 padding on all sides. The GridView also has spacing.
+            // Total horizontal padding and spacing for the grid:
+            // 16.0 (Card left padding) + 16.0 (Card right padding) for the outer Card padding
+            // + (crossAxisCount - 1) * gridSpacing for the spacing BETWEEN grid items
+            final double totalHorizontalPadding = (16.0 * 2) + ((crossAxisCount - 1) * gridSpacing);
+            final double effectiveGridWidth = availableWidth - totalHorizontalPadding;
+            
+            // Ensure effectiveGridWidth is not negative or zero
+            final double cellSize = (effectiveGridWidth > 0) ? effectiveGridWidth / crossAxisCount : 0.0;
+
+            // Adjust font size based on cell size.
+            // Ensure font is not too small (e.g., 18) and not too large (e.g., 40)
+            final double fontSize = math.max(18.0, math.min(40.0, cellSize * 0.5)); // 0.5 is an arbitrary scaling factor for text size relative to cell size
+
+            return Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 100.0), // Increased bottom padding
+                    children: [
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
                             children: [
-                              Text(
-                                'Score: $score', // Already English
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Score: $score', // Already English
+                                    style: const TextStyle(
+                                      fontSize: 24, // Keep this fixed or adjust if needed
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Words: ${foundWords.length}/$_wordsToWin', // Already English
+                                      style: TextStyle(
+                                        color: foundWords.length >= _wordsToWin
+                                            ? Colors.green
+                                            : Colors.black87,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
+                              if (_timeBonus > 0)
+                                LinearProgressIndicator(
+                                  value: _timeBonus / 50,
+                                  backgroundColor: Colors.grey[200],
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.orange.withOpacity(0.8),
+                                  ),
                                 ),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'Words: ${foundWords.length}/$_wordsToWin', // Already English
-                                  style: TextStyle(
-                                    color: foundWords.length >= _wordsToWin
-                                        ? Colors.green
-                                        : Colors.black87,
-                                    fontWeight: FontWeight.bold,
+                              const SizedBox(height: 16),
+                              // MODIFIED GridView: Use calculated cellSize and fontSize
+                              Center( // Center the grid within the card
+                                child: Container( // Wrap GridView in a Container to limit its size
+                                  width: (cellSize * crossAxisCount) + ((crossAxisCount -1) * gridSpacing), // Explicit width including spacing
+                                  // Height will be determined by 3 rows * cellSize + 2 * gridSpacing
+                                  height: (3 * cellSize) + (2 * gridSpacing), // 3 rows, 2 spaces between them
+                                  child: GridView.count(
+                                    shrinkWrap: true,
+                                    crossAxisCount: crossAxisCount, // Fixed at 5
+                                    mainAxisSpacing: gridSpacing,
+                                    crossAxisSpacing: gridSpacing,
+                                    childAspectRatio: 1, // Keep cells square
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    children: letters
+                                        .map(
+                                          (letter) => Card(
+                                            color: Colors.blue.shade100,
+                                            child: Center(
+                                              child: Text(
+                                                letter,
+                                                style: TextStyle(
+                                                  fontSize: fontSize, // Use dynamic font size
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          if (_timeBonus > 0)
-                            LinearProgressIndicator(
-                              value: _timeBonus / 50,
-                              backgroundColor: Colors.grey[200],
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.orange.withOpacity(0.8),
-                              ),
-                            ),
-                          const SizedBox(height: 16),
-                          GridView.count(
-                            shrinkWrap: true,
-                            crossAxisCount: 5,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                            childAspectRatio: 1,
-                            physics: const NeverScrollableScrollPhysics(),
-                            children: letters
-                                .map(
-                                  (letter) => Card(
-                                    color: Colors.blue.shade100,
-                                    child: Center(
-                                      child: Text(
-                                        letter,
-                                        style: const TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (foundWords.isNotEmpty)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Found words:', // Translated
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: foundWords
+                                      .map(
+                                        (word) => Chip(
+                                          label: Text(word),
+                                          backgroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                              .withOpacity(0.1),
                                         ),
-                                      ),
+                                      )
+                                      .toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (message.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Text(
+                            message,
+                            style: TextStyle(
+                              color: message.toLowerCase().contains('correct')
+                                  ? Colors.green
+                                  : Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
+                        child: ElevatedButton(
+                          onPressed: _checkWord,
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48), // Make button wider
+                          ),
+                          child: const Text('Confirm Word'), // Translated
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0,
+                                ),
+                                child: TextField(
+                                  controller: controller,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Type a word', // Translated
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 12,
                                     ),
                                   ),
-                                )
-                                .toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (foundWords.isNotEmpty)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Found words:', // Translated
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                                  keyboardType:
+                                      TextInputType.text, // Added for clarity
+                                  onSubmitted: (_) => _checkWord(),
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: foundWords
-                                  .map(
-                                    (word) => Chip(
-                                      label: Text(word),
-                                      backgroundColor: Theme.of(context)
-                                          .colorScheme
-                                          .primary
-                                          .withOpacity(0.1),
-                                    ),
-                                  )
-                                  .toList(),
+                            Material(
+                              color: Colors.transparent,
+                              child: IconButton(
+                                icon: const Icon(Icons.send),
+                                onPressed: _checkWord,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (message.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Text(
-                        message,
-                        style: TextStyle(
-                          color: message.toLowerCase().contains('correct')
-                              ? Colors.green
-                              : Colors.red,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
-                    child: ElevatedButton(
-                      onPressed: _checkWord,
-                      child: const Text('Confirm Word'), // Translated
-                    ),
+                    ],
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                            ),
-                            child: TextField(
-                              controller: controller,
-                              decoration: const InputDecoration(
-                                hintText: 'Type a word', // Translated
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                              ),
-                              keyboardType:
-                                  TextInputType.text, // Added for clarity
-                              onSubmitted: (_) => _checkWord(),
-                            ),
-                          ),
-                        ),
-                        Material(
-                          color: Colors.transparent,
-                          child: IconButton(
-                            icon: const Icon(Icons.send),
-                            onPressed: _checkWord,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                ),
+              ],
+            );
+          },
         ),
       ),
       floatingActionButton: FloatingActionButton(
