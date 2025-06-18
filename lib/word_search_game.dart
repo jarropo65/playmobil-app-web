@@ -1,6 +1,6 @@
 // lib/word_search_game.dart
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'dart:math' as math; // Import math with a prefix to avoid conflicts
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'currency_manager.dart'; // Import CurrencyManager
@@ -40,6 +40,12 @@ class _WordSearchGameState extends State<WordSearchGame> {
     // Optional: If you want to load best scores for this screen, do it here.
     // _cargarMejoresPuntuaciones();
   }
+
+  // @override
+  // void dispose() {
+  //   _timer?.cancel(); // Ensure the timer is cancelled if used
+  //   super.dispose();
+  // }
 
   void _configurarDificultad() {
     switch (_currentDifficulty) {
@@ -229,7 +235,7 @@ class _WordSearchGameState extends State<WordSearchGame> {
     );
 
     // Grant coins. IMPORTANT! addMonedas now requires the user.
-    await CurrencyManager.addMonedas(20, widget.usuario); 
+    await CurrencyManager.addMonedas(20, widget.usuario);  
 
     // Call verifyAchievements with the correct parameters
     // --- KEY CORRECTION HERE ---
@@ -402,82 +408,126 @@ class _WordSearchGameState extends State<WordSearchGame> {
           ],
         ),
       ),
-      body: Column(
-        children: [
-          // Here you could add information like words to find or remaining time
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Words: ${_foundWords.length}/${_words.length}'), // Translated
-              ],
-            ),
-          ),
-          Expanded(
-            child: GridView.builder(
-              itemCount: _rows * _cols,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _cols,
-                childAspectRatio: 1,
-                crossAxisSpacing: 2,
-                mainAxisSpacing: 2,
-              ),
-              itemBuilder: (context, index) {
-                int row = index ~/ _cols;
-                int col = index % _cols;
-                bool isSelected = _selectedCells[row][col];
-                String cellText = _grid[row][col];
+      body: SafeArea(
+        child: LayoutBuilder( // Use LayoutBuilder for responsive grid
+          builder: (context, constraints) {
+            final double availableWidth = constraints.maxWidth;
+            final double availableHeight = constraints.maxHeight;
 
-                return GestureDetector(
-                  onTap: () {
-                    _toggleSeleccion(row, col);
-                  },
-                  child: Container(
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isSelected ? Colors.blue.withAlpha(100) : Colors.white,
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Text(
-                      cellText,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.black : Colors.black54,
+            // Calculate the ideal size for the square grid
+            // We want the grid to be square and fit within the smaller dimension
+            // while also leaving space for padding and the info/button sections.
+            // Estimate space needed for other UI elements (header, button, word list)
+            final double verticalUISpace = 8.0 + 16.0 + 8.0 + 40.0 + 8.0 + 16.0 + 16.0 + 16.0 + 16.0; // Estimate: Padding, Row, ElevatedButton, Text
+            
+            // Available vertical space for the grid
+            final double gridAvailableHeight = availableHeight - verticalUISpace;
+
+            // Take the minimum of available width and available height for the grid,
+            // then limit its maximum size for very large screens.
+            double gridDimension = math.min(availableWidth, gridAvailableHeight);
+            gridDimension = math.min(gridDimension, 700.0); // Limit max grid size for very large screens (e.g., 700px)
+
+            // Calculate individual cell size based on the grid dimension and number of columns/rows
+            // Account for spacing
+            final double spacing = 2.0; // existing spacing
+            final double totalSpacing = spacing * (_cols - 1);
+            final double cellSize = (gridDimension - totalSpacing) / _cols;
+
+            // Adjust font size based on cell size
+            // Ensure font is not too small (min 10) and not too large (max 24)
+            final double fontSize = math.max(10.0, math.min(24.0, cellSize * 0.6)); // Proportional to cell size
+
+
+            return Column(
+              children: [
+                // Info section (Words: x/y)
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Using a flexible spacer to push content to sides if needed
+                      const Spacer(),
+                      Text(
+                        'Words: ${_foundWords.length}/${_words.length}', // Translated
+                        style: const TextStyle(fontSize: 18), // Keep this fixed or adjust if needed
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Center( // Center the grid
+                    child: Container(
+                      width: gridDimension,
+                      height: gridDimension,
+                      // Add a background color to visualize the grid container if needed
+                      // color: Colors.purple.withOpacity(0.1),
+                      child: GridView.builder(
+                        itemCount: _rows * _cols,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: _cols, // Still fixed by difficulty
+                          childAspectRatio: 1, // Keep cells square
+                          crossAxisSpacing: spacing,
+                          mainAxisSpacing: spacing,
+                        ),
+                        itemBuilder: (context, index) {
+                          int row = index ~/ _cols;
+                          int col = index % _cols;
+                          bool isSelected = _selectedCells[row][col];
+                          String cellText = _grid[row][col];
+
+                          return GestureDetector(
+                            onTap: () {
+                              _toggleSeleccion(row, col);
+                            },
+                            child: Container(
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.blue.withAlpha(100) : Colors.white,
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Text(
+                                cellText,
+                                style: TextStyle(
+                                  fontSize: fontSize, // Use dynamic font size
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? Colors.black : Colors.black54,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-            child: ElevatedButton(
-              onPressed: _verificarSeleccion,
-              child: const Text('Check Selection'), // Translated
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 40),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              'Words to find: ${_words.where((w) => !_foundWords.contains(w)).join(', ')}', // Translated
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
+                ),
+                // Check Selection button
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                  child: ElevatedButton(
+                    onPressed: _verificarSeleccion,
+                    child: const Text('Check Selection'), // Translated
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 40),
+                    ),
+                  ),
+                ),
+                // Words to find list
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Words to find: ${_words.where((w) => !_foundWords.contains(w)).join(', ')}', // Translated
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500), // Keep this fixed or adjust if needed
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
-
-  // @override
-  // void dispose() {
-  //   _timer?.cancel(); // Ensure the timer is cancelled if used
-  //   super.dispose();
-  // }
 }
