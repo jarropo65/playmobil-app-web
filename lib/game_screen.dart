@@ -287,9 +287,9 @@ class _GameScreenState extends State<GameScreen> {
     // --- KEY CORRECTION HERE ---
     await AchievementManager.verificarLogros(
       widget.usuario, // The first argument is the user
-      'memoria',      // The second argument is the gameNameIdentifier
-      dificultadStr,  // The third argument is the difficulty
-      puntuacion,     // The fourth argument is the score
+      'memoria', // The second argument is the gameNameIdentifier
+      dificultadStr, // The third argument is the difficulty
+      puntuacion, // The fourth argument is the score
     );
 
     if (!mounted) return;
@@ -393,20 +393,13 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    int crossAxisCount;
-    double aspectRatio;
+    // Definimos las variables aquí para que LayoutBuilder pueda calcularlas
+    // y el resto del widget las use.
+    // Esto es un placeholder; los valores reales se calcularán dentro de LayoutBuilder.
+    int currentCrossAxisCount = 4; // Default para Easy, se ajustará dinámicamente
+    double currentAspectRatio = 0.85; // Default, se ajustará dinámicamente
 
-    switch (_difficulty) {
-      case Difficulty.easy: //4x4 // Translated
-        crossAxisCount = 4;
-        aspectRatio = 0.85;
-        break;
-      case Difficulty.hard: //6x6 // Translated
-        crossAxisCount = 6;
-        aspectRatio = 0.85;
-        break;
-    }
-
+    // Reemplazamos el switch estático con LayoutBuilder para una adaptación dinámica
     return Scaffold(
       appBar: AppBar(
         // EXPLICITLY PLACE THE BACK ARROW
@@ -530,43 +523,85 @@ class _GameScreenState extends State<GameScreen> {
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: const [
-                  Text(
-                    'Find the pairs!', // Translated
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        child: LayoutBuilder( // Usamos LayoutBuilder para el control responsivo
+          builder: (context, constraints) {
+            final double screenWidth = constraints.maxWidth;
+            
+            // Lógica para crossAxisCount basada en el ancho de la pantalla y la dificultad
+            if (_difficulty == Difficulty.easy) {
+              if (screenWidth > 1000) {
+                currentCrossAxisCount = 8; // Ej: 8 columnas para escritorio muy ancho
+              } else if (screenWidth > 700) {
+                currentCrossAxisCount = 6; // Ej: 6 columnas para tabletas o escritorios medianos
+              } else if (screenWidth > 400) {
+                currentCrossAxisCount = 4; // 4 columnas para móviles más anchos
+              } else {
+                currentCrossAxisCount = 3; // 3 columnas para móviles muy estrechos
+              }
+            } else { // Difficulty.hard
+              if (screenWidth > 1200) {
+                currentCrossAxisCount = 10; // Ej: 10 columnas para escritorio muy ancho
+              } else if (screenWidth > 900) {
+                currentCrossAxisCount = 8; // Ej: 8 columnas para tabletas o escritorios medianos
+              } else if (screenWidth > 600) {
+                currentCrossAxisCount = 6; // 6 columnas para tabletas más pequeñas o móviles anchos
+              } else {
+                currentCrossAxisCount = 4; // 4 columnas para móviles
+              }
+            }
+
+            // Lógica para aspectRatio basada en el ancho de la pantalla
+            // Generalmente, un aspecto de 1.0 (cuadrado) es buen punto de partida.
+            // Para tarjetas que contienen imágenes y texto, a veces un aspecto ligeramente
+            // más alto (ej. 0.9) es mejor para dar más altura al contenido.
+            if (screenWidth < 600) { // Móviles
+              currentAspectRatio = 0.9;
+            } else if (screenWidth < 900) { // Tabletas
+              currentAspectRatio = 1.0;
+            } else { // Escritorio
+              currentAspectRatio = 1.1;
+            }
+
+
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    children: const [
+                      Text(
+                        'Find the pairs!', // Translated
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Tap the cards to flip them and find all the image pairs.', // Translated
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Tap the cards to flip them and find all the image pairs.', // Translated
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13),
+                ),
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(
+                      8.0,
+                    ),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: currentCrossAxisCount, // Usamos la variable dinámica
+                      crossAxisSpacing: 4,
+                      mainAxisSpacing: 4,
+                      childAspectRatio: currentAspectRatio, // Usamos la variable dinámica
+                    ),
+                    itemCount: gridSize,
+                    itemBuilder: (context, index) {
+                      return _buildCard(index);
+                    },
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(
-                  8.0,
                 ),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: 4,
-                  mainAxisSpacing: 4,
-                  childAspectRatio: aspectRatio,
-                ),
-                itemCount: gridSize,
-                itemBuilder: (context, index) {
-                  return _buildCard(index);
-                },
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
