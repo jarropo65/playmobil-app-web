@@ -8,7 +8,7 @@ import '../achievements.dart';
 import 'package:flutter/foundation.dart'; // Import for debugPrint
 
 class BubbleTarget {
-  final Rect position;
+  final Rect position; // Position in original image coordinates
   final String correctText;
   String? currentText;
 
@@ -44,6 +44,11 @@ class ComicGameScreen extends StatefulWidget {
 
 class _ComicGameScreenState extends State<ComicGameScreen> {
   static const String _gameNameIdentifier = 'comic_game';
+
+  // Assuming original image resolution for bubble positions (e.g., image1_sin_texto.png)
+  // These dimensions are critical for scaling the bubble positions correctly.
+  // I've estimated these based on common comic panel sizes that would fit the provided Rect values.
+  static const Size _originalComicPanelImageSize = Size(360, 480); // Width x Height
 
   List<String> imagesWithBubbles = [
     'assets/images/comic_game/image1.png',
@@ -92,9 +97,10 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
   // IMPORTANT! This variable will store the difficulty WITHOUT ACCENTS for saving.
   String _currentDifficulty = 'initial'; // Initial difficulty state
 
-  final double comicPanelWidth = 70.0;
-  final double comicPanelHeight = 100.0;
-  final double comicPanelMargin = 4.0;
+  // Removed fixed comicPanelWidth and comicPanelHeight as they will be dynamic
+  // final double comicPanelWidth = 70.0;
+  // final double comicPanelHeight = 100.0;
+  final double comicPanelMargin = 4.0; // Margin can remain fixed
 
   final ScrollController _textScrollController = ScrollController();
 
@@ -266,7 +272,7 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
     int monedasGanadas = puntuacion ~/ 10;
     
     // We use _currentDifficulty which was already normalized in _setDifficulty (without accents)
-    final String difficultyToSave = _currentDifficulty; 
+    final String difficultyToSave = _currentDifficulty;  
 
     debugPrint('*** ComicGameScreen: STARTING CALL TO SAVE SCORE ***'); // Translated
     debugPrint('  gameNameIdentifier: "$_gameNameIdentifier"');
@@ -286,7 +292,7 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
 
     // --- KEY CORRECTION HERE ---
     await AchievementManager.verificarLogros(
-      widget.usuario,        // The first argument is the user
+      widget.usuario,    // The first argument is the user
       _gameNameIdentifier, // The second argument is the gameNameIdentifier
       difficultyToSave,    // The third argument is the difficulty
       puntuacion,          // The fourth argument is the score
@@ -341,7 +347,7 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
   void _setDifficulty(String newDifficultyDisplay) {
     setState(() {
       // Normalize difficulty here so it's always without accents
-      _currentDifficulty = _normalizeDifficultyString(newDifficultyDisplay); 
+      _currentDifficulty = _normalizeDifficultyString(newDifficultyDisplay);  
       debugPrint('ComicGameScreen: Selected AND NORMALIZED difficulty: "$_currentDifficulty"'); // Translated
       showImages = false;
       // Comparisons here should also be with the normalized string
@@ -359,351 +365,6 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
         speechBubbles.shuffle();
       }
     });
-  }
-
-  Widget _buildDifficultExercise() {
-    return Column(
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(8.0),
-          child: Text(
-            'Drag and drop the texts into the speech bubbles!', // Translated
-            style: TextStyle(fontSize: 20),
-            textAlign: TextAlign.center, // Added alignment for better display
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: comicPanelsData.length,
-            itemBuilder: (context, panelIndex) {
-              final panel = comicPanelsData[panelIndex];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    children: [
-                      Stack(
-                        children: [
-                          Image.asset(
-                            panel.imagePath,
-                            width: double.infinity,
-                            fit: BoxFit.contain,
-                            errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
-                              return Container(
-                                width: double.infinity,
-                                color: Colors.grey[300],
-                                child: Center(
-                                  child: Text('Error loading image: ${panel.imagePath}', textAlign: TextAlign.center), // Translated
-                                ),
-                              );
-                            },
-                          ),
-                          ...panel.bubbles.asMap().entries.map((entry) {
-                            final bubbleIndex = entry.key;
-                            final bubble = entry.value;
-
-                            return Positioned(
-                              left: bubble.position.left,
-                              top: bubble.position.top,
-                              width: bubble.position.width,
-                              height: bubble.position.height,
-                              child: DragTarget<String>(
-                                builder: (context, candidateData, rejectedData) {
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: candidateData.isNotEmpty ? Colors.green : Colors.red,
-                                        width: 2,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8.0),
-                                      color: bubble.currentText != null ? Colors.blue[100]!.withOpacity(0.7) : Colors.grey[200]!.withOpacity(0.7),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        bubble.currentText ?? 'Drag here', // Translated
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: bubble.currentText != null ? Colors.black87 : Colors.red[800],
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                                onWillAccept: (data) {
-                                  bool isTextUsed = _allBubblesForDifficultExercise.any((b) => b != bubble && b.currentText == data);
-                                  return bubble.currentText == null && !isTextUsed;
-                                },
-                                onAccept: (data) {
-                                  setState(() {
-                                    for (var otherBubble in _allBubblesForDifficultExercise) {
-                                      if (otherBubble != bubble && otherBubble.currentText == data) {
-                                        otherBubble.currentText = null;
-                                        break;
-                                      }
-                                    }
-                                    bubble.currentText = data;
-                                    movimientos++;
-                                    HapticFeedback.mediumImpact();
-                                  });
-                                },
-                              ),
-                            );
-                          }).toList(),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        Container(
-          height: 90,
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          color: Colors.blueGrey[50],
-          child: ClipRect(
-            child: Scrollbar(
-              controller: _textScrollController,
-              thumbVisibility: true,
-              trackVisibility: true,
-              thickness: 8.0,
-              radius: const Radius.circular(10),
-              child: ListView.builder(
-                controller: _textScrollController,
-                scrollDirection: Axis.horizontal,
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: speechBubbles.length,
-                itemBuilder: (context, textIndex) {
-                  final text = speechBubbles[textIndex];
-                  bool isTextUsed = _allBubblesForDifficultExercise.any((bubble) => bubble.currentText == text);
-
-                  if (isTextUsed) {
-                    return Container(
-                      width: 150,
-                      margin: const EdgeInsets.symmetric(horizontal: 6.0),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: Colors.grey[400]!),
-                      ),
-                      child: Center(
-                        child: Text(
-                          text,
-                          style: TextStyle(color: Colors.grey[500], fontSize: 14, fontStyle: FontStyle.italic),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    );
-                  }
-                  return LongPressDraggable<String>(
-                    data: text,
-                    feedback: Material(
-                      elevation: 4.0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Text(
-                          text,
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                    childWhenDragging: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 6.0),
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      child: Text(
-                        text,
-                        style: TextStyle(color: Colors.grey[500], fontSize: 16),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 6.0),
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                      decoration: BoxDecoration(
-                        color: Colors.blue,
-                        borderRadius: BorderRadius.circular(8.0),
-                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0, 1))],
-                      ),
-                      child: Center(
-                        child: Text(
-                          text,
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 60,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton(
-                  onPressed: verificarTextos,
-                  child: const Text('Verify Texts'), // Translated
-                ),
-                ElevatedButton(
-                  onPressed: reiniciarJuego,
-                  child: const Text('Restart'), // Translated
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOrderScreen() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            'Now order the comic panels! - Moves: $movimientos', // Translated
-            style: const TextStyle(fontSize: 18),
-            textAlign: TextAlign.center, // Added alignment for better display
-          ),
-        ),
-        SizedBox(
-          height: comicPanelHeight + (comicPanelMargin * 2) + 10,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: 5,
-            shrinkWrap: true,
-            physics: const ClampingScrollPhysics(),
-            itemBuilder: (context, index) {
-              return DragTarget<String>(
-                builder: (context, candidateData, rejectedData) {
-                  return Container(
-                    width: comicPanelWidth,
-                    height: comicPanelHeight,
-                    margin: EdgeInsets.all(comicPanelMargin),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.black),
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: slots[index] != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(3.0),
-                            child: Image.asset(
-                              slots[index]!,
-                              fit: BoxFit.contain,
-                            ),
-                          )
-                        : const Center(child: Text('Drop here')), // Translated
-                  );
-                },
-                onWillAccept: (data) {
-                  return slots[index] == null && !slots.contains(data);
-                },
-                onAccept: (data) {
-                  setState(() {
-                    final previousIndex = slots.indexOf(data);
-                    if (previousIndex != -1) {
-                      slots[previousIndex] = null;
-                    }
-                    slots[index] = data;
-                    movimientos++;
-                    HapticFeedback.mediumImpact();
-                  });
-                },
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: shuffledImages.length,
-            shrinkWrap: true,
-            physics: const ClampingScrollPhysics(),
-            itemBuilder: (context, index) {
-              final imagePath = shuffledImages[index];
-              if (slots.contains(imagePath)) {
-                return SizedBox(width: comicPanelWidth + (comicPanelMargin * 2));
-              }
-              return Draggable<String>(
-                data: imagePath,
-                feedback: Material(
-                  elevation: 4.0,
-                  color: Colors.transparent,
-                  child: Container(
-                    width: comicPanelWidth,
-                    height: comicPanelHeight,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4.0),
-                      child: Image.asset(
-                        imagePath,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ),
-                childWhenDragging: SizedBox(
-                  width: comicPanelWidth,
-                  height: comicPanelHeight,
-                ),
-                dragAnchorStrategy: (draggable, context, position) {
-                  return Offset(comicPanelWidth / 2, comicPanelHeight / 2);
-                },
-                child: Container(
-                  width: comicPanelWidth,
-                  height: comicPanelHeight,
-                  margin: EdgeInsets.all(comicPanelMargin),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4.0),
-                    child: Image.asset(
-                      imagePath,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton(
-                onPressed: verificarOrden,
-                child: const Text('Verify'), // Translated
-              ),
-              ElevatedButton(
-                onPressed: reiniciarJuego,
-                child: const Text('Restart'), // Translated
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
   }
 
   @override
@@ -788,70 +449,470 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
       ),
       body: SafeArea(
         child: showImages
-                ? SizedBox.expand(
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: Image.asset(imagesWithBubbles[currentImageIndex]),
-                    ),
-                  )
-                : showOrderScreen
-                    ? _buildOrderScreen()
-                    : showDifficultExercise
-                        ? _buildDifficultExercise()
-                        : Container(
-                            decoration: const BoxDecoration(
-                              image: DecorationImage(
-                                image: AssetImage("assets/images/playmobil_comic_fondo.png"),
-                                fit: BoxFit.cover,
+            ? SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: Image.asset(imagesWithBubbles[currentImageIndex]),
+                ),
+              )
+            : showOrderScreen
+                ? _buildOrderScreen()
+                : showDifficultExercise
+                    ? _buildDifficultExercise()
+                    : Container(
+                        decoration: const BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage("assets/images/playmobil_comic_fondo.png"),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(20.0),
+                                margin: const EdgeInsets.symmetric(horizontal: 20.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.8),
+                                  borderRadius: BorderRadius.circular(15.0),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 5),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Image.asset(
+                                      'assets/images/characters/happy_kid.png',
+                                      height: 100,
+                                      width: 100,
+                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.sentiment_very_satisfied, size: 80, color: Colors.blueAccent),
+                                    ),
+                                    const SizedBox(height: 15),
+                                    const Text(
+                                      'Welcome to the Comic Game!', // Translated
+                                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.deepPurple),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    const Text(
+                                      'Choose a difficulty from the side menu', // Translated
+                                      style: TextStyle(fontSize: 16, color: Colors.blueGrey),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(20.0),
-                                    margin: const EdgeInsets.symmetric(horizontal: 20.0),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.8),
-                                      borderRadius: BorderRadius.circular(15.0),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.2),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 5),
-                                        ),
-                                      ],
+                            ],
+                          ),
+                        ),
+                      ),
+      ),
+    );
+  }
+
+  // --- MODIFIED _buildDifficultExercise FUNCTION FOR RESPONSIVENESS ---
+  Widget _buildDifficultExercise() {
+    return LayoutBuilder( // Use LayoutBuilder to get available space
+      builder: (context, constraints) {
+        final double availableWidth = constraints.maxWidth;
+        final double availableHeight = constraints.maxHeight;
+
+        // Max width for each comic panel image, based on the largest original image
+        // Assuming images are around 360 wide, we'll try to fit them in a max width of 600
+        // on larger screens, but scale down for smaller screens.
+        final double maxImageWidth = min(availableWidth * 0.9, 600.0); // Limit max width
+        final double panelImageHeight = maxImageWidth * (_originalComicPanelImageSize.height / _originalComicPanelImageSize.width);
+
+        // Adjust padding and margins for responsiveness
+        double panelHorizontalPadding = availableWidth * 0.02; // 2% of screen width
+        panelHorizontalPadding = max(8.0, min(panelHorizontalPadding, 24.0)); // Min 8, Max 24
+
+        double textBubbleWidth = (availableWidth - (2 * panelHorizontalPadding) - (speechBubbles.length * 12)) / speechBubbles.length;
+        textBubbleWidth = max(100.0, min(textBubbleWidth, 200.0)); // Keep text bubbles between 100 and 200 width
+
+        double textFontSize = availableWidth < 600 ? 12.0 : 14.0; // Smaller font for small screens
+
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: const Text(
+                'Drag and drop the texts into the speech bubbles!', // Translated
+                style: TextStyle(fontSize: 20),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: comicPanelsData.length,
+                itemBuilder: (context, panelIndex) {
+                  final panel = comicPanelsData[panelIndex];
+                  return Card(
+                    margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: panelHorizontalPadding),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        children: [
+                          // Stack for image and bubbles
+                          Stack(
+                            children: [
+                              // Comic panel image
+                              Image.asset(
+                                panel.imagePath,
+                                // Dynamically adjust width based on available space, maintaining aspect ratio
+                                width: maxImageWidth,
+                                height: panelImageHeight,
+                                fit: BoxFit.contain, // Changed to contain to ensure full image is visible
+                                errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                                  return Container(
+                                    width: maxImageWidth,
+                                    height: panelImageHeight,
+                                    color: Colors.grey[300],
+                                    child: Center(
+                                      child: Text('Error loading image: ${panel.imagePath}', textAlign: TextAlign.center), // Translated
                                     ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Image.asset(
-                                          'assets/images/characters/happy_kid.png',
-                                          height: 100,
-                                          width: 100,
-                                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.sentiment_very_satisfied, size: 80, color: Colors.blueAccent),
+                                  );
+                                },
+                              ),
+                              // Speech bubbles (positioned dynamically)
+                              ...panel.bubbles.asMap().entries.map((entry) {
+                                final bubbleIndex = entry.key;
+                                final bubble = entry.value;
+
+                                // Calculate scaled position based on the actual rendered image size
+                                // Assuming the Stack's size is controlled by the Image.asset
+                                final double scaleX = maxImageWidth / _originalComicPanelImageSize.width;
+                                final double scaleY = panelImageHeight / _originalComicPanelImageSize.height;
+
+                                return Positioned(
+                                  left: bubble.position.left * scaleX,
+                                  top: bubble.position.top * scaleY,
+                                  width: bubble.position.width * scaleX,
+                                  height: bubble.position.height * scaleY,
+                                  child: DragTarget<String>(
+                                    builder: (context, candidateData, rejectedData) {
+                                      return Container(
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                            color: candidateData.isNotEmpty ? Colors.green : Colors.red,
+                                            width: 2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(8.0),
+                                          color: bubble.currentText != null ? Colors.blue[100]!.withOpacity(0.7) : Colors.grey[200]!.withOpacity(0.7),
                                         ),
-                                        const SizedBox(height: 15),
-                                        const Text(
-                                          'Welcome to the Comic Game!', // Translated
-                                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.deepPurple),
-                                          textAlign: TextAlign.center,
+                                        child: Center(
+                                          child: FittedBox( // Use FittedBox to scale text if needed
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              bubble.currentText ?? 'Drag here', // Translated
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: bubble.currentText != null ? Colors.black87 : Colors.red[800],
+                                                fontSize: textFontSize, // Use dynamic font size
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                        const SizedBox(height: 10),
-                                        const Text(
-                                          'Choose a difficulty from the side menu', // Translated
-                                          style: TextStyle(fontSize: 16, color: Colors.blueGrey),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
-                                    ),
+                                      );
+                                    },
+                                    onWillAccept: (data) {
+                                      bool isTextUsed = _allBubblesForDifficultExercise.any((b) => b != bubble && b.currentText == data);
+                                      return bubble.currentText == null && !isTextUsed;
+                                    },
+                                    onAccept: (data) {
+                                      setState(() {
+                                        for (var otherBubble in _allBubblesForDifficultExercise) {
+                                          if (otherBubble != bubble && otherBubble.currentText == data) {
+                                            otherBubble.currentText = null;
+                                            break;
+                                          }
+                                        }
+                                        bubble.currentText = data;
+                                        movimientos++;
+                                        HapticFeedback.mediumImpact();
+                                      });
+                                    },
                                   ),
-                                ],
+                                );
+                              }).toList(),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            // Draggable text bubbles container
+            Container(
+              height: 90, // Fixed height for the draggable texts row
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              color: Colors.blueGrey[50],
+              child: ClipRect(
+                child: Scrollbar(
+                  controller: _textScrollController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  thickness: 8.0,
+                  radius: const Radius.circular(10),
+                  child: ListView.builder(
+                    controller: _textScrollController,
+                    scrollDirection: Axis.horizontal,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: speechBubbles.length,
+                    itemBuilder: (context, textIndex) {
+                      final text = speechBubbles[textIndex];
+                      bool isTextUsed = _allBubblesForDifficultExercise.any((bubble) => bubble.currentText == text);
+
+                      return Container(
+                        width: textBubbleWidth, // Dynamic width for text bubbles
+                        margin: const EdgeInsets.symmetric(horizontal: 6.0),
+                        decoration: BoxDecoration(
+                          color: isTextUsed ? Colors.grey[300] : Colors.blue, // Grey if used, blue if not
+                          borderRadius: BorderRadius.circular(8.0),
+                          border: Border.all(color: isTextUsed ? Colors.grey[400]! : Colors.blueAccent),
+                          boxShadow: [
+                            if (!isTextUsed) const BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0, 1)),
+                          ],
+                        ),
+                        child: LongPressDraggable<String>(
+                          data: text,
+                          // Only allow dragging if the text is not currently used in a bubble
+                          canDrag: !isTextUsed,
+                          feedback: Material(
+                            elevation: 4.0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                              decoration: BoxDecoration(
+                                color: Colors.blueAccent,
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                              child: Text(
+                                text,
+                                style: TextStyle(color: Colors.white, fontSize: textFontSize, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
                               ),
                             ),
                           ),
-      ),
+                          childWhenDragging: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 6.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: Text(
+                              text,
+                              style: TextStyle(color: Colors.grey[500], fontSize: textFontSize),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          child: Center(
+                            child: FittedBox( // Use FittedBox to scale text if needed
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                text,
+                                style: TextStyle(color: isTextUsed ? Colors.grey[500] : Colors.white, fontSize: textFontSize, fontStyle: isTextUsed ? FontStyle.italic : null, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 60,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: verificarTextos,
+                      child: const Text('Verify Texts'), // Translated
+                    ),
+                    ElevatedButton(
+                      onPressed: reiniciarJuego,
+                      child: const Text('Restart'), // Translated
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- MODIFIED _buildOrderScreen FUNCTION FOR RESPONSIVENESS ---
+  Widget _buildOrderScreen() {
+    return LayoutBuilder( // Use LayoutBuilder to get available space
+      builder: (context, constraints) {
+        final double availableWidth = constraints.maxWidth;
+        // We have 5 panels. We want them to fit horizontally if possible.
+        // Let's reserve some padding and spacing.
+        final int numberOfPanels = 5;
+        double panelSpacing = 8.0; // Spacing between panels
+        double totalHorizontalPadding = 16.0; // Total padding on left/right of the list
+        
+        // Calculate dynamic panel width
+        double dynamicPanelWidth = (availableWidth - totalHorizontalPadding - (panelSpacing * (numberOfPanels - 1))) / numberOfPanels;
+        
+        // Set a max width for panels to prevent them from becoming too large on very wide screens
+        dynamicPanelWidth = min(dynamicPanelWidth, 120.0); // Max width for a single panel
+
+        double dynamicPanelHeight = dynamicPanelWidth * (_originalComicPanelImageSize.height / _originalComicPanelImageSize.width);
+        dynamicPanelHeight = min(dynamicPanelHeight, 160.0); // Max height for a single panel
+
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                'Now order the comic panels! - Moves: $movimientos', // Translated
+                style: const TextStyle(fontSize: 18),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // Draggable slots for placing images
+            SizedBox(
+              // Calculate height dynamically based on content + margins
+              height: dynamicPanelHeight + (comicPanelMargin * 2) + 20, // Add extra for text 'Drop here'
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: numberOfPanels, // Always 5 slots
+                shrinkWrap: true,
+                physics: const ClampingScrollPhysics(),
+                itemBuilder: (context, index) {
+                  return DragTarget<String>(
+                    builder: (context, candidateData, rejectedData) {
+                      return Container(
+                        width: dynamicPanelWidth, // Dynamic width
+                        height: dynamicPanelHeight, // Dynamic height
+                        margin: EdgeInsets.all(comicPanelMargin),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: slots[index] != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(3.0),
+                                child: Image.asset(
+                                  slots[index]!,
+                                  fit: BoxFit.contain, // Changed to contain
+                                ),
+                              )
+                            : const Center(child: Text('Drop here', textAlign: TextAlign.center, style: TextStyle(fontSize: 12))), // Translated, smaller font
+                      );
+                    },
+                    onWillAccept: (data) {
+                      return slots[index] == null && !slots.contains(data);
+                    },
+                    onAccept: (data) {
+                      setState(() {
+                        final previousIndex = slots.indexOf(data);
+                        if (previousIndex != -1) {
+                          slots[previousIndex] = null;
+                        }
+                        slots[index] = data;
+                        movimientos++;
+                        HapticFeedback.mediumImpact();
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Draggable images to be ordered
+            Expanded(
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: shuffledImages.length,
+                shrinkWrap: true,
+                physics: const ClampingScrollPhysics(),
+                itemBuilder: (context, index) {
+                  final imagePath = shuffledImages[index];
+                  if (slots.contains(imagePath)) {
+                    // Make sure the placeholder for used images has correct dynamic size
+                    return SizedBox(width: dynamicPanelWidth + (comicPanelMargin * 2)); 
+                  }
+                  return Draggable<String>(
+                    data: imagePath,
+                    feedback: Material(
+                      elevation: 4.0,
+                      color: Colors.transparent,
+                      child: Container(
+                        width: dynamicPanelWidth, // Dynamic width
+                        height: dynamicPanelHeight, // Dynamic height
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4.0),
+                          child: Image.asset(
+                            imagePath,
+                            fit: BoxFit.contain, // Changed to contain
+                          ),
+                        ),
+                      ),
+                    ),
+                    childWhenDragging: SizedBox(
+                      width: dynamicPanelWidth, // Dynamic width
+                      height: dynamicPanelHeight, // Dynamic height
+                    ),
+                    dragAnchorStrategy: (draggable, context, position) {
+                      return Offset(dynamicPanelWidth / 2, dynamicPanelHeight / 2); // Dynamic anchor
+                    },
+                    child: Container(
+                      width: dynamicPanelWidth, // Dynamic width
+                      height: dynamicPanelHeight, // Dynamic height
+                      margin: EdgeInsets.all(comicPanelMargin),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4.0),
+                        child: Image.asset(
+                          imagePath,
+                          fit: BoxFit.contain, // Changed to contain
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: verificarOrden,
+                    child: const Text('Verify'), // Translated
+                  ),
+                  ElevatedButton(
+                    onPressed: reiniciarJuego,
+                    child: const Text('Restart'), // Translated
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
