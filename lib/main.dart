@@ -33,7 +33,7 @@ class MyApp extends StatelessWidget {
           tertiary: const Color(0xFFFFD93D),
         ),
         useMaterial3: true,
-        cardTheme: const CardTheme(elevation: 4, margin: EdgeInsets.all(8)),
+        cardTheme: const CardThemeData(elevation: 4, margin: EdgeInsets.all(8)),
         buttonTheme: const ButtonThemeData(
           buttonColor: Color(0xFF4FB4F8),
           textTheme: ButtonTextTheme.primary,
