@@ -412,24 +412,32 @@ class _WordGameState extends State<WordGame> {
         child: LayoutBuilder( // Add LayoutBuilder here
           builder: (context, constraints) {
             final double availableWidth = constraints.maxWidth;
-            // Number of columns in the letter grid is fixed at 5
             const int crossAxisCount = 5;
-            const double gridSpacing = 8.0; // mainAxisSpacing and crossAxisSpacing
+            const double gridSpacing = 8.0;
 
-            // Calculate ideal cell size, considering padding within the Card and grid spacing
-            // The Card has 16.0 padding on all sides. The GridView also has spacing.
-            // Total horizontal padding and spacing for the grid:
-            // 16.0 (Card left padding) + 16.0 (Card right padding) for the outer Card padding
-            // + (crossAxisCount - 1) * gridSpacing for the spacing BETWEEN grid items
-            final double totalHorizontalPadding = (16.0 * 2) + ((crossAxisCount - 1) * gridSpacing);
-            final double effectiveGridWidth = availableWidth - totalHorizontalPadding;
-            
-            // Ensure effectiveGridWidth is not negative or zero
-            final double cellSize = (effectiveGridWidth > 0) ? effectiveGridWidth / crossAxisCount : 0.0;
+            // Calculate the actual available width for the grid cells, accounting for all paddings
+            // ListView horizontal padding: 16.0 (left) + 16.0 (right) = 32.0
+            // Card horizontal padding: 16.0 (left) + 16.0 (right) = 32.0
+            final double availableWidthForGridCells = availableWidth - (16.0 * 2) - (16.0 * 2);
 
-            // Adjust font size based on cell size.
-            // Ensure font is not too small (e.g., 18) and not too large (e.g., 40)
-            final double fontSize = max(18.0, min(40.0, cellSize * 0.5)); // MODIFIED: Use max and min directly
+            // Calculate base cellSize based on this available width, and then cap it.
+            // This ensures it scales down on small screens but doesn't become enormous on large ones.
+            double calculatedCellSize = (availableWidthForGridCells - (crossAxisCount - 1) * gridSpacing) / crossAxisCount;
+
+            // Define a maximum size for individual cells to prevent them from becoming too large.
+            const double maxCellDimension = 80.0; // Reduced from 100.0 for smaller appearance
+
+            // Apply min and max constraints to the calculated cell size
+            calculatedCellSize = max(50.0, min(maxCellDimension, calculatedCellSize)); // min 50.0, max 80.0
+
+            // Calculate the actual width and height for the grid container based on the capped cell size
+            const int numGridRows = 3; // The grid always has 3 rows of letters
+            final double gridDisplayWidth = (calculatedCellSize * crossAxisCount) + ((crossAxisCount - 1) * gridSpacing);
+            final double gridDisplayHeight = (calculatedCellSize * numGridRows) + ((numGridRows - 1) * gridSpacing);
+
+            // Adjust font size based on the final cell size, with appropriate min/max limits
+            final double finalFontSize = max(20.0, min(36.0, calculatedCellSize * 0.45)); // Adjusted values for better aesthetics
+
 
             return Column(
               children: [
@@ -482,18 +490,17 @@ class _WordGameState extends State<WordGame> {
                                   ),
                                 ),
                               const SizedBox(height: 16),
-                              // MODIFIED GridView: Use calculated cellSize and fontSize
-                              Center( // Center the grid within the card
-                                child: Container( // Wrap GridView in a Container to limit its size
-                                  width: (cellSize * crossAxisCount) + ((crossAxisCount -1) * gridSpacing), // Explicit width including spacing
-                                  // Height will be determined by 3 rows * cellSize + 2 * gridSpacing
-                                  height: (3 * cellSize) + (2 * gridSpacing), // 3 rows, 2 spaces between them
+                              // Use calculated gridDisplayWidth and gridDisplayHeight
+                              Center(
+                                child: Container(
+                                  width: gridDisplayWidth,
+                                  height: gridDisplayHeight,
                                   child: GridView.count(
                                     shrinkWrap: true,
-                                    crossAxisCount: crossAxisCount, // Fixed at 5
+                                    crossAxisCount: crossAxisCount,
                                     mainAxisSpacing: gridSpacing,
                                     crossAxisSpacing: gridSpacing,
-                                    childAspectRatio: 1, // Keep cells square
+                                    childAspectRatio: 1,
                                     physics: const NeverScrollableScrollPhysics(),
                                     children: letters
                                         .map(
@@ -503,7 +510,7 @@ class _WordGameState extends State<WordGame> {
                                               child: Text(
                                                 letter,
                                                 style: TextStyle(
-                                                  fontSize: fontSize, // Use dynamic font size
+                                                  fontSize: finalFontSize, // Use dynamically calculated font size
                                                   fontWeight: FontWeight.bold,
                                                 ),
                                               ),
