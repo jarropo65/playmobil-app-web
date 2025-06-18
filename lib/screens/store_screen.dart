@@ -1,6 +1,8 @@
+// lib/screens/store_screen.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../currency_manager.dart'; // Ensure this import is correct
+import 'dart:math'; // Import for min/max functions
 
 class StoreScreen extends StatefulWidget {
   final String usuario;
@@ -479,16 +481,15 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     // Calculamos el factor de escala del texto para ajustar el GridView
     final double textScaleFactor = MediaQuery.of(context).textScaleFactor;
-    double childAspectRatio = 0.75; // Valor por defecto de la tienda
+    double baseChildAspectRatio = 0.75; // Default aspect ratio for a single item
 
-    // Ajustamos el childAspectRatio en base al textScaleFactor para dar más espacio vertical
-    // en los elementos de la cuadrícula cuando la configuración de texto es grande.
+    // Adjust childAspectRatio based on textScaleFactor
     if (textScaleFactor > 1.3) {
-      childAspectRatio = 0.6; // Hacemos los elementos significativamente más altos
+      baseChildAspectRatio = 0.6; // Make items taller for larger text
     } else if (textScaleFactor > 1.1) {
-      childAspectRatio = 0.7; // Hacemos los elementos un poco más altos
+      baseChildAspectRatio = 0.7; // Make items a bit taller
     } else if (textScaleFactor < 0.9) {
-      childAspectRatio = 0.8; // Hacemos los elementos un poco más anchos (aprovechando espacio)
+      baseChildAspectRatio = 0.8; // Make items a bit wider
     }
 
     return Scaffold(
@@ -670,158 +671,197 @@ class _StoreScreenState extends State<StoreScreen> with WidgetsBindingObserver {
               ),
             ),
             Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount( // Usamos SliverGridDelegateWithFixedCrossAxisCount
-                  crossAxisCount: 2,
-                  childAspectRatio: childAspectRatio, // <-- Aplicamos el childAspectRatio dinámico aquí
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: _productosFiltrados.length,
-                itemBuilder: (context, index) {
-                  final producto = _productosFiltrados[index];
-                  return Card(
-                    elevation: 5,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+              // Use LayoutBuilder for responsive GridView
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final double availableWidth = constraints.maxWidth;
+                  // Define a maximum desired width for each item to control how large they can get
+                  const double maxItemWidth = 200.0; // Max width for a single product card
+
+                  // Calculate how many columns can fit based on available width and max item width
+                  // Factor in padding and spacing within the GridView
+                  const double gridPadding = 16.0; // Horizontal padding of the GridView
+                  const double crossAxisSpacing = 16.0; // Spacing between columns
+
+                  // Calculate the effective width available for items + their internal spacing
+                  final double effectiveContentWidth = availableWidth - (2 * gridPadding);
+
+                  // Calculate crossAxisCount (number of columns)
+                  // Use max(1, ...) to ensure at least one column
+                  int crossAxisCount = max(1, (effectiveContentWidth / (maxItemWidth + crossAxisSpacing)).floor());
+
+                  // If only one column, make it wider, but not full width (add some max constraint)
+                  if (crossAxisCount == 1) {
+                    crossAxisCount = 1; // Explicitly set to 1
+                    // Potentially adjust width of item or padding to center it, etc.
+                    // For now, let the grid item take the full width it's given
+                  }
+
+                  // Calculate the item width based on the actual crossAxisCount and available space
+                  // This is derived from the formula: totalWidth = numCols * itemWidth + (numCols - 1) * spacing
+                  // itemWidth = (totalWidth - (numCols - 1) * spacing) / numCols
+                  final double itemWidth = (effectiveContentWidth - (crossAxisCount - 1) * crossAxisSpacing) / crossAxisCount;
+
+                  // Use a fixed aspect ratio or adjust it based on content height
+                  // A ratio around 0.65-0.75 is often good for cards with images on top and text/buttons below
+                  // The baseChildAspectRatio is already factoring in textScaleFactor
+                  final double finalChildAspectRatio = itemWidth / (itemWidth / baseChildAspectRatio);
+
+
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(gridPadding), // Use the defined grid padding
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount, // Dynamic number of columns
+                      childAspectRatio: finalChildAspectRatio, // Apply dynamic aspect ratio
+                      crossAxisSpacing: crossAxisSpacing, // Use defined spacing
+                      mainAxisSpacing: 16, // Main axis spacing remains fixed for now
                     ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        color: Colors.white,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Expanded(
-                            child: Stack(
-                              children: [
-                                // Aseguramos que la imagen ocupe todo el espacio disponible en su Expanded
-                                Center( // Centramos la imagen para que no se pegue a los bordes
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0), // Reducimos el padding de 12 a 8
-                                    child: Image.asset(
-                                      producto['imagen'],
-                                      fit: BoxFit.contain, // Ajustamos la imagen para que contenga sin salirse
-                                      // Añadir un key para forzar la recarga si la imagen cambia (útil para depuración)
-                                      key: ValueKey(producto['imagen']),
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 0,
-                                  right: 0,
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: IconButton(
-                                      icon: Icon(
-                                        _favoritos.contains(producto['nombre'])
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        color: Colors.red,
-                                        size: 30,
-                                      ),
-                                      onPressed: () => _toggleFavorito(
-                                        producto['nombre'],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                    itemCount: _productosFiltrados.length,
+                    itemBuilder: (context, index) {
+                      final producto = _productosFiltrados[index];
+                      return Card(
+                        elevation: 5,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            color: Colors.white,
                           ),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.only(
-                                bottomLeft: Radius.circular(20),
-                                bottomRight: Radius.circular(20),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  producto['nombre'],
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        '${producto['precio']}',
-                                        style: const TextStyle(
-                                          color: Colors.orange,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Expanded(
+                                child: Stack(
+                                  children: [
+                                    // Aseguramos que la imagen ocupe todo el espacio disponible en su Expanded
+                                    Center( // Centramos la imagen para que no se pegue a los bordes
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8.0), // Reduced padding
+                                        child: Image.asset(
+                                          producto['imagen'],
+                                          fit: BoxFit.contain, // Adjust image to contain without overflowing
+                                          key: ValueKey(producto['imagen']), // Key for image caching
                                         ),
                                       ),
-                                      const SizedBox(width: 4),
-                                      const Icon(
-                                        Icons.monetization_on,
-                                        color: Colors.orange,
-                                        size: 18,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed:
-                                        _monedasUsuario >= producto['precio']
-                                            ? () {
-                                                _comprarProducto(
-                                                  producto,
-                                                );
-                                              }
-                                            : null,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          Theme.of(context).colorScheme.primary,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(15),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
+                                    ),
+                                    Positioned(
+                                      top: 0,
+                                      right: 0,
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: IconButton(
+                                          icon: Icon(
+                                            _favoritos.contains(producto['nombre'])
+                                                ? Icons.favorite
+                                                : Icons.favorite_border,
+                                            color: Colors.red,
+                                            size: 30,
+                                          ),
+                                          onPressed: () => _toggleFavorito(
+                                            producto['nombre'],
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                    child: const Text(
-                                      'Buy!',
-                                      style: TextStyle(
-                                        fontSize: 16,
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.only(
+                                    bottomLeft: Radius.circular(20),
+                                    bottomRight: Radius.circular(20),
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min, // Use min to wrap content
+                                  children: [
+                                    Text(
+                                      producto['nombre'],
+                                      style: const TextStyle(
+                                        fontSize: 16, // Potentially make this dynamic later if needed
                                         fontWeight: FontWeight.bold,
                                       ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.amber.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            '${producto['precio']}',
+                                            style: const TextStyle(
+                                              color: Colors.orange,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Icon(
+                                            Icons.monetization_on,
+                                            color: Colors.orange,
+                                            size: 18,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton(
+                                        onPressed:
+                                            _monedasUsuario >= producto['precio']
+                                                ? () {
+                                                    _comprarProducto(
+                                                      producto,
+                                                    );
+                                                  }
+                                                : null,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              Theme.of(context).colorScheme.primary,
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(15),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Buy!',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
