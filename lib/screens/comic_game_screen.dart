@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../currency_manager.dart';
 import '../achievements.dart';
 import 'package:flutter/foundation.dart'; // Import for debugPrint
+import 'dart:math' as math; // Explicit import for min/max functions
 
 class BubbleTarget {
   final Rect position; // Position in original image coordinates
@@ -521,20 +522,20 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
     return LayoutBuilder( // Use LayoutBuilder to get available space
       builder: (context, constraints) {
         final double availableWidth = constraints.maxWidth;
-        final double availableHeight = constraints.maxHeight;
+        final double availableHeight = constraints.maxHeight; // Not directly used in scaling, but good to have
 
         // Max width for each comic panel image, based on the largest original image
         // Assuming images are around 360 wide, we'll try to fit them in a max width of 600
         // on larger screens, but scale down for smaller screens.
-        final double maxImageWidth = min(availableWidth * 0.9, 600.0); // Limit max width
+        final double maxImageWidth = math.min(availableWidth * 0.9, 600.0); // Limit max width
         final double panelImageHeight = maxImageWidth * (_originalComicPanelImageSize.height / _originalComicPanelImageSize.width);
 
         // Adjust padding and margins for responsiveness
         double panelHorizontalPadding = availableWidth * 0.02; // 2% of screen width
-        panelHorizontalPadding = max(8.0, min(panelHorizontalPadding, 24.0)); // Min 8, Max 24
+        panelHorizontalPadding = math.max(8.0, math.min(panelHorizontalPadding, 24.0)); // Min 8, Max 24
 
         double textBubbleWidth = (availableWidth - (2 * panelHorizontalPadding) - (speechBubbles.length * 12)) / speechBubbles.length;
-        textBubbleWidth = max(100.0, min(textBubbleWidth, 200.0)); // Keep text bubbles between 100 and 200 width
+        textBubbleWidth = math.max(100.0, math.min(textBubbleWidth, 200.0)); // Keep text bubbles between 100 and 200 width
 
         double textFontSize = availableWidth < 600 ? 12.0 : 14.0; // Smaller font for small screens
 
@@ -674,21 +675,30 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                       final text = speechBubbles[textIndex];
                       bool isTextUsed = _allBubblesForDifficultExercise.any((bubble) => bubble.currentText == text);
 
-                      return Container(
-                        width: textBubbleWidth, // Dynamic width for text bubbles
-                        margin: const EdgeInsets.symmetric(horizontal: 6.0),
-                        decoration: BoxDecoration(
-                          color: isTextUsed ? Colors.grey[300] : Colors.blue, // Grey if used, blue if not
-                          borderRadius: BorderRadius.circular(8.0),
-                          border: Border.all(color: isTextUsed ? Colors.grey[400]! : Colors.blueAccent),
-                          boxShadow: [
-                            if (!isTextUsed) const BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0, 1)),
-                          ],
-                        ),
-                        child: LongPressDraggable<String>(
+                      // Conditional rendering based on isTextUsed (replaces canDrag)
+                      if (isTextUsed) {
+                        return Container(
+                          width: textBubbleWidth, // Dynamic width for text bubbles
+                          margin: const EdgeInsets.symmetric(horizontal: 6.0),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(8.0),
+                            border: Border.all(color: Colors.grey[400]!),
+                          ),
+                          child: Center(
+                            child: FittedBox( // Use FittedBox to scale text if needed
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                text,
+                                style: TextStyle(color: Colors.grey[500], fontSize: textFontSize, fontStyle: FontStyle.italic),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        );
+                      } else {
+                        return LongPressDraggable<String>(
                           data: text,
-                          // Only allow dragging if the text is not currently used in a bubble
-                          canDrag: !isTextUsed,
                           feedback: Material(
                             elevation: 4.0,
                             child: Container(
@@ -717,18 +727,28 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                               textAlign: TextAlign.center,
                             ),
                           ),
-                          child: Center(
-                            child: FittedBox( // Use FittedBox to scale text if needed
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                text,
-                                style: TextStyle(color: isTextUsed ? Colors.grey[500] : Colors.white, fontSize: textFontSize, fontStyle: isTextUsed ? FontStyle.italic : null, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
+                          child: Container(
+                            width: textBubbleWidth, // Dynamic width for text bubbles
+                            margin: const EdgeInsets.symmetric(horizontal: 6.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: BorderRadius.circular(8.0),
+                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0, 1))],
+                            ),
+                            child: Center(
+                              child: FittedBox( // Use FittedBox to scale text if needed
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  text,
+                                  style: TextStyle(color: Colors.white, fontSize: textFontSize, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
+                        );
+                      }
                     },
                   ),
                 ),
@@ -774,10 +794,10 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
         double dynamicPanelWidth = (availableWidth - totalHorizontalPadding - (panelSpacing * (numberOfPanels - 1))) / numberOfPanels;
         
         // Set a max width for panels to prevent them from becoming too large on very wide screens
-        dynamicPanelWidth = min(dynamicPanelWidth, 120.0); // Max width for a single panel
+        dynamicPanelWidth = math.min(dynamicPanelWidth, 120.0); // Max width for a single panel
 
         double dynamicPanelHeight = dynamicPanelWidth * (_originalComicPanelImageSize.height / _originalComicPanelImageSize.width);
-        dynamicPanelHeight = min(dynamicPanelHeight, 160.0); // Max height for a single panel
+        dynamicPanelHeight = math.min(dynamicPanelHeight, 160.0); // Max height for a single panel
 
 
         return Column(
