@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game_screen.dart'; // Mantener si se usa en GameSelectionScreen
@@ -14,12 +15,57 @@ import 'screens/comic_game_screen.dart'; // Mantener si se usa en GameSelectionS
 import 'screens/game_selection_screen.dart'; // IMPORTANT! Import of the new game selection screen
 import 'package:auto_size_text/auto_size_text.dart';
 
+// --- NUEVO: Importar CurrencyManager ---
+import 'currency_manager.dart';
+
 void main() {
+  // Asegurarse de que Flutter esté inicializado antes de usar WidgetsBinding.
+  // Esto es vital para SharedPreferences y para añadir el observer.
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // --- NUEVO: Inicializar CurrencyManager aquí, una única vez al inicio de la app ---
+  CurrencyManager.initialize();
+
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+// --- MODIFICACION: MyApp ahora es un StatefulWidget ---
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    // Añadir este observer para saber cuándo la aplicación cambia de estado (ej. se cierra).
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    // Cuando la aplicación se cierra permanentemente, cerramos el StreamController
+    // de CurrencyManager para liberar recursos y evitar fugas de memoria.
+    WidgetsBinding.instance.removeObserver(this);
+    CurrencyManager.dispose(); // <-- ¡Llamar a dispose aquí para el CurrencyManager!
+    super.dispose();
+  }
+
+  // didChangeAppLifecycleState es útil para reanudar operaciones cuando la app vuelve a primer plano.
+  // En este caso, ya el StreamBuilder en StoreScreen se encarga de reaccionar a los cambios.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Opcional: Forzar una actualización del saldo de monedas en el stream
+      // Esto es una capa extra de seguridad para asegurar que el stream emita
+      // el valor más reciente de SharedPreferences si la app estuvo inactiva.
+      // CurrencyManager.getMonedas('current_user'); // Necesitarías el usuario actual si no lo pasas por aquí.
+      // Sin embargo, StoreScreen ya lo llama en su initState/didChangeAppLifecycleState.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -438,15 +484,28 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _cargarPuntos();
+    // No longer need to call _cargarPuntos() from SharedPreferences here,
+    // as we will use the CurrencyManager stream directly.
+    // _cargarPuntos(); // REMOVED
+
+    // --- NEW: Listen to the CurrencyManager stream for the current user's coins ---
+    CurrencyManager.allMonedasStream.listen((monedasMap) {
+      if (monedasMap.containsKey(widget.usuario)) {
+        setState(() {
+          _puntos = monedasMap[widget.usuario]!;
+        });
+      }
+    });
+    // Trigger an initial load to ensure the stream emits the current value
+    CurrencyManager.getMonedas(widget.usuario);
   }
 
-  Future<void> _cargarPuntos() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _puntos = prefs.getInt('monedas_${widget.usuario}') ?? 0;
-    });
-  }
+  // Future<void> _cargarPuntos() async { // REMOVED, now handled by stream
+  //   final prefs = await SharedPreferences.getInstance();
+  //   setState(() {
+  //     _puntos = prefs.getInt('monedas_${widget.usuario}') ?? 0;
+  //   });
+  // }
 
   // Helper method to build game options in the GridView
   Widget _buildGameOption(
@@ -581,7 +640,7 @@ class _HomePageState extends State<HomePage> {
 
             // Ajustamos el childAspectRatio para que los elementos no sean ni muy anchos ni muy altos
             // Un valor más bajo hace el ítem más alto (útil para texto grande), un valor más alto lo hace más ancho.
-            double childAspectRatio = 1.0; 
+            double childAspectRatio = 1.0;
             if (screenWidth < 600) { // Móviles
               childAspectRatio = 0.9; // Ligeramente más altos para mejor legibilidad en pantallas pequeñas
             } else if (screenWidth < 900) { // Tabletas en vertical
@@ -604,19 +663,18 @@ class _HomePageState extends State<HomePage> {
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                        const GameSelectionScreen(usuario: ''), // Asegúrate de pasar el usuario si GameSelectionScreen lo necesita
+                        GameSelectionScreen(usuario: widget.usuario), // Pasa el usuario aquí
                       ),
                     );
                   }),
                   _buildGameOption(context, 'Store', 'store_icon.png', () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    final puntos = prefs.getInt('monedas_${widget.usuario}') ?? 0;
+                    // No necesitas obtener puntos aquí, StoreScreen ahora usa el stream
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => StoreScreen(
                           usuario: widget.usuario,
-                          puntos: puntos,
+                          puntos: 0, // 'puntos' ya no es relevante en StoreScreen
                         ),
                       ),
                     );
@@ -632,8 +690,8 @@ class _HomePageState extends State<HomePage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            AchievementsScreen(usuario: widget.usuario),
+                          builder: (context) =>
+                          AchievementsScreen(usuario: widget.usuario),
                       ),
                     );
                   }),
@@ -641,8 +699,8 @@ class _HomePageState extends State<HomePage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            ProfileScreen(usuario: widget.usuario),
+                          builder: (context) =>
+                          ProfileScreen(usuario: widget.usuario),
                       ),
                     );
                   }),
@@ -711,14 +769,13 @@ class _HomePageState extends State<HomePage> {
             Theme.of(context).colorScheme.secondary,
                 () async {
               Navigator.pop(context); // Close the drawer
-              final prefs = await SharedPreferences.getInstance();
-              final puntos = prefs.getInt('monedas_${widget.usuario}') ?? 0;
+              // No necesitas obtener puntos aquí, StoreScreen ahora usa el stream
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => StoreScreen(
                     usuario: widget.usuario,
-                    puntos: puntos,
+                    puntos: 0, // 'puntos' ya no es relevante en StoreScreen
                   ),
                 ),
               );
