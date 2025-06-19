@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Códigos QR</title>
+    <!-- Carga de Tailwind CSS para estilos modernos y responsivos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuración para la fuente Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Un fondo suave */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-lg w-full text-center">
+        <h1 class="text-3xl font-bold text-blue-700 mb-6">Generador de Códigos QR</h1>
+        <p class="text-gray-600 mb-6">Introduce la URL para generar tu código QR.</p>
+
+        <div class="mb-6">
+            <input type="url" id="urlInput" placeholder="https://tu-app.netlify.app"
+                   class="w-full p-3 border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-500 transition-all duration-300 text-gray-800">
+        </div>
+
+        <button id="generateBtn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all duration-300 transform hover:scale-105">
+            Generar Código QR
+        </button>
+
+        <div id="qrCodeContainer" class="mt-8 flex justify-center items-center">
+            <!-- El código QR se renderizará aquí -->
+            <p class="text-gray-500">Introduce una URL y haz clic en "Generar Código QR".</p>
+        </div>
+
+        <div id="messageBox" class="mt-4 p-3 rounded-lg text-sm hidden"></div>
+    </div>
+
+    <!-- Carga de la biblioteca qrcode.js desde un CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.0.0/qrcode.min.js"></script>
+
+    <script>
+        const urlInput = document.getElementById('urlInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const qrCodeContainer = document.getElementById('qrCodeContainer');
+        const messageBox = document.getElementById('messageBox');
+        let qrcodeInstance = null; // Para almacenar la instancia de QRCode
+
+        // Función para mostrar mensajes al usuario (reemplaza alert())
+        function showMessage(message, type = 'info') {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800', 'bg-yellow-100', 'text-yellow-800');
+            if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'text-red-800');
+            } else if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'text-green-800');
+            } else {
+                messageBox.classList.add('bg-yellow-100', 'text-yellow-800');
+            }
+            messageBox.classList.remove('hidden');
+        }
+
+        // Función para generar el código QR
+        generateBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+
+            if (!url) {
+                showMessage('Por favor, introduce una URL válida.', 'error');
+                // Limpiar el contenedor si no hay URL
+                qrCodeContainer.innerHTML = '<p class="text-gray-500">Introduce una URL y haz clic en "Generar Código QR".</p>';
+                qrcodeInstance = null;
+                return;
+            }
+
+            // Validar la URL (una validación simple, se puede mejorar)
+            try {
+                new URL(url); // Intenta crear un objeto URL para validar
+            } catch (e) {
+                showMessage('La URL introducida no es válida. Asegúrate de incluir "http://" o "https://".', 'error');
+                qrCodeContainer.innerHTML = '<p class="text-gray-500">Introduce una URL y haz clic en "Generar Código QR".</p>';
+                qrcodeInstance = null;
+                return;
+            }
+
+            // Limpiar el contenedor antes de generar un nuevo QR
+            qrCodeContainer.innerHTML = '';
+            messageBox.classList.add('hidden'); // Ocultar mensajes de error previos
+
+            // Crear una nueva instancia de QRCode.js
+            // Los parámetros son: el elemento DOM, y las opciones (text, width, height, colorDark, colorLight)
+            qrcodeInstance = new QRCode(qrCodeContainer, {
+                text: url,
+                width: 256,  // Ancho del QR
+                height: 256, // Alto del QR
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H // Nivel de corrección de error (L, M, Q, H)
+            });
+
+            showMessage('¡Código QR generado con éxito! Puedes hacer clic derecho para guardarlo.', 'success');
+        });
+
+        // Opcional: Generar un QR al cargar la página si hay una URL predeterminada o guardada
+        window.onload = () => {
+             // Podrías cargar una URL por defecto aquí para probar
+             urlInput.value = "https://fascinating-buttercream-bb52aa.netlify.app/";
+             generateBtn.click(); // Simula un clic para generar el QR al cargar
+        };
+    </script>
+</body>
+</html>
