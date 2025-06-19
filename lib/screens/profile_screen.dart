@@ -6,6 +6,7 @@ import 'package:playmobil_app/achievements.dart'; // IMPORTANT! Import Achieveme
 import 'dart:io'; // Needed to work with File
 import 'package:image_picker/image_picker.dart'; // Import image_picker package
 import 'package:flutter/foundation.dart'; // For debugPrint
+import 'dart:async'; // For StreamSubscription
 
 class ProfileScreen extends StatefulWidget {
   final String usuario;
@@ -21,7 +22,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
-  Map<String, int> estadisticas = {
+  // Using a local state variable for statistics to update with setState
+  Map<String, int> _estadisticas = {
     'totalJuegos': 0,
     'puntuacionTotal': 0,
     'logrosDesbloqueados': 0,
@@ -31,13 +33,38 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   List<Map<String, String>> _itemsComprados = [];
   String? _profileImagePath;
 
+  // Stream subscriptions for real-time updates
+  StreamSubscription? _monedasSubscription;
+  StreamSubscription? _juegosCompletadosSubscription;
+  StreamSubscription? _puntuacionAcumuladaSubscription;
+  StreamSubscription? _logrosDesbloqueadosSubscription;
+
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _cargarEstadisticas();
-    _cargarItemsComprados();
+    // Initialize CurrencyManager (already done in main.dart, but good practice if this screen is root)
+    CurrencyManager.initialize();
     _loadProfileImage();
+    _cargarItemsComprados(); // Load purchased items initially
+
+    // Listen to coin changes from CurrencyManager
+    _monedasSubscription = CurrencyManager.allMonedasStream.listen((monedasMap) {
+      if (monedasMap.containsKey(widget.usuario)) {
+        setState(() {
+          _estadisticas['monedasActuales'] = monedasMap[widget.usuario]!;
+          debugPrint('ProfileScreen: Monedas updated via stream: ${_estadisticas['monedasActuales']}');
+        });
+      }
+    });
+
+    // We need to extend CurrencyManager or AchievementManager to provide streams
+    // for total games, total score, and achievements unlocked for real-time updates
+    // for now, we'll keep calling _cargarEstadisticas() on resume and initial load.
+    // However, to ensure they update without leaving the screen, we'd need streams for them too.
+    // For this specific request, we'll focus on just loading them initially and on resume.
+    _cargarEstadisticas(); // Initial load for all stats
   }
 
   @override
@@ -45,6 +72,10 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     WidgetsBinding.instance.removeObserver(this);
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _monedasSubscription?.cancel(); // Cancel subscription to prevent memory leaks
+    _juegosCompletadosSubscription?.cancel();
+    _puntuacionAcumuladaSubscription?.cancel();
+    _logrosDesbloqueadosSubscription?.cancel();
     super.dispose();
   }
 
@@ -52,12 +83,13 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       // When the app becomes active again, reload stats and purchased items
+      // _cargarEstadisticas() will also trigger CurrencyManager.getMonedas which updates its stream.
       _cargarEstadisticas();
       _cargarItemsComprados();
     }
   }
 
-  // --- _cargarEstadisticas FUNCTION MODIFIED ---
+  // --- _cargarEstadisticas FUNCTION MODIFIED for real-time consistency ---
   Future<void> _cargarEstadisticas() async {
     debugPrint('ProfileScreen: Starting statistics load for user: ${widget.usuario}');
     try {
@@ -65,14 +97,13 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       final puntuacionTotalAcumulada = await CurrencyManager.getTotalPuntuacionAcumuladaUsuario(widget.usuario);
       debugPrint('ProfileScreen: Total Accumulated Score (read): $puntuacionTotalAcumulada');
 
-      // KEY CHANGE HERE: Load unlocked achievements using AchievementManager
+      // Load unlocked achievements using AchievementManager
       final unlockedAchievementsList = await AchievementManager.getUnlockedAchievements(widget.usuario);
       final logrosDesbloqueadosCount = unlockedAchievementsList.length;
       debugPrint('ProfileScreen: Unlocked Achievements (read from AchievementManager): $logrosDesbloqueadosCount');
 
-      // Load current coins from CurrencyManager
-      final monedasActuales = await CurrencyManager.getMonedas(widget.usuario);
-      debugPrint('ProfileScreen: Current Coins (read): $monedasActuales');
+      // Load current coins from CurrencyManager. This call also ensures CurrencyManager stream is updated.
+      await CurrencyManager.getMonedas(widget.usuario); // This will push the value to the stream.
 
       // Get total completed games directly from CurrencyManager
       final totalJuegosCompletadosReal = await CurrencyManager.getJuegosCompletados(widget.usuario);
@@ -80,11 +111,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
       if (mounted) {
         setState(() {
-          estadisticas = {
+          _estadisticas = {
             'totalJuegos': totalJuegosCompletadosReal,
             'puntuacionTotal': puntuacionTotalAcumulada,
-            'logrosDesbloqueados': logrosDesbloqueadosCount, // Use the CORRECT value!
-            'monedasActuales': monedasActuales,
+            'logrosDesbloqueados': logrosDesbloqueadosCount,
+            'monedasActuales': _estadisticas['monedasActuales']!, // Monedas are updated by the stream, keep its current value
           };
           debugPrint('ProfileScreen: Statistics UI state updated.');
         });
@@ -94,7 +125,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     }
   }
 
-
   Future<void> _cargarItemsComprados() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
@@ -102,22 +132,22 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         prefs.getStringList('comprados_${widget.usuario}') ?? [];
     final List<Map<String, String>> loadedItems = [];
 
+    debugPrint('ProfileScreen: Loading ${itemsDataStrings.length} purchased items for user: ${widget.usuario}');
+
     for (String itemDataString in itemsDataStrings) {
       final parts = itemDataString.split(';');
       if (parts.length == 2) {
         loadedItems.add({'nombre': parts[0], 'imagen': parts[1]});
+        debugPrint('  - Loaded item: ${parts[0]} (${parts[1]})');
       } else {
-        // Fallback for old items without saved image
-        loadedItems.add({
-          'nombre': itemDataString,
-          'imagen': '', // Empty string if no image
-        });
+        debugPrint('  - Skipping malformed item string: $itemDataString');
       }
     }
 
     if (mounted) {
       setState(() {
         _itemsComprados = loadedItems;
+        debugPrint('ProfileScreen: Purchased items UI state updated. Total: ${_itemsComprados.length}');
       });
     }
   }
@@ -196,7 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   Navigator.of(context).pop();
                 },
               )
-            : null, 
+            : null,
         title: const Text(
           'My Profile!',
           style: TextStyle(
@@ -207,8 +237,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         ),
         backgroundColor: Theme.of(context).colorScheme.primary,
       ),
-      body: Container( 
-        decoration: const BoxDecoration( 
+      body: Container(
+        decoration: const BoxDecoration(
           image: DecorationImage(
             image: AssetImage(
               "assets/images/playmobil_perfil_fondo.png",
@@ -249,18 +279,18 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                               _profileImagePath != null &&
                                       _profileImagePath!.isNotEmpty
                                   ? FileImage(
-                                        File(_profileImagePath!),
-                                      )
+                                      File(_profileImagePath!),
+                                    )
                                   : null,
                           child:
                               _profileImagePath == null ||
                                       _profileImagePath!.isEmpty
                                   ? Icon(
-                                        Icons.person,
-                                        size: 60,
-                                        color:
-                                            Theme.of(context).colorScheme.primary,
-                                      )
+                                      Icons.person,
+                                      size: 60,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    )
                                   : null,
                         ),
                       ),
@@ -299,28 +329,28 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                       const SizedBox(height: 16),
                       _buildStatTile(
                         'Games Played',
-                        estadisticas['totalJuegos'].toString(),
+                        _estadisticas['totalJuegos'].toString(),
                         Icons.sports_esports,
                         Colors.blue,
                       ),
                       const Divider(),
                       _buildStatTile(
                         'Total Score',
-                        estadisticas['puntuacionTotal'].toString(),
+                        _estadisticas['puntuacionTotal'].toString(),
                         Icons.stars,
                         Colors.amber,
                       ),
                       const Divider(),
                       _buildStatTile(
                         'Achievements Unlocked',
-                        estadisticas['logrosDesbloqueados'].toString(), 
+                        _estadisticas['logrosDesbloqueados'].toString(),
                         Icons.emoji_events,
                         Colors.green,
                       ),
                       const Divider(),
                       _buildStatTile(
                         'My Coins',
-                        estadisticas['monedasActuales'].toString(),
+                        _estadisticas['monedasActuales'].toString(),
                         Icons.monetization_on,
                         Colors.orange,
                       ),
@@ -328,6 +358,92 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   ),
                 ),
               ),
+              const SizedBox(height: 24),
+              // --- NUEVA SECCIÓN: Mis Artículos Comprados ---
+              if (_itemsComprados.isNotEmpty)
+                Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'My Purchased Items!',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.purple,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final double availableWidth = constraints.maxWidth;
+                            const double itemWidth = 100; // Desired width for each item in the grid
+                            const double spacing = 10; // Spacing between items
+
+                            int crossAxisCount = (availableWidth / (itemWidth + spacing)).floor();
+                            if (crossAxisCount < 1) crossAxisCount = 1; // Ensure at least 1 column
+
+                            double childAspectRatio = itemWidth / (itemWidth + 40); // Adjust ratio based on image + text height
+
+                            return GridView.builder(
+                              shrinkWrap: true, // Important to make GridView take only needed height
+                              physics: const NeverScrollableScrollPhysics(), // Prevent GridView from scrolling independently
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                crossAxisSpacing: spacing,
+                                mainAxisSpacing: spacing,
+                                childAspectRatio: childAspectRatio,
+                              ),
+                              itemCount: _itemsComprados.length,
+                              itemBuilder: (context, index) {
+                                final item = _itemsComprados[index];
+                                return Column(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(10),
+                                          color: Colors.grey.shade200, // Light background for the image
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: item['imagen']!.isNotEmpty
+                                              ? Image.asset(
+                                                  item['imagen']!,
+                                                  fit: BoxFit.contain, // Use contain to fit without cropping
+                                                  errorBuilder: (context, error, stackTrace) {
+                                                    debugPrint('Error loading image ${item['imagen']}: $error');
+                                                    return const Icon(Icons.broken_image, size: 50, color: Colors.grey);
+                                                  },
+                                                )
+                                              : const Icon(Icons.shopping_bag, size: 50, color: Colors.grey), // Placeholder
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      item['nombre']!,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 24),
               Card(
                 elevation: 4,
