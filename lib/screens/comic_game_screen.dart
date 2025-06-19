@@ -125,38 +125,38 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
       ComicPanelData(
         imagePath: imagesWithoutText[0],
         bubbles: [
-          BubbleTarget(position: const Rect.fromLTWH(30, 340, 125, 60), correctText: 'Yes, and he is carrying a leather bag.'),
-          BubbleTarget(position: const Rect.fromLTWH(205, 340, 125, 60), correctText: 'Look! That man is wearing a brown jacket!'),
+          BubbleTarget(position: const Rect.fromLTWH(40, 300, 125, 60), correctText: 'Yes, and he is carrying a leather bag.'),
+          BubbleTarget(position: const Rect.fromLTWH(200, 300, 125, 60), correctText: 'Look! That man is wearing a brown jacket!'),
         ],
       ),
       ComicPanelData(
         imagePath: imagesWithoutText[1],
         bubbles: [
-          BubbleTarget(position: const Rect.fromLTWH(28, 150, 125, 60), correctText: 'I am wearing a woollen jumper!'),
-          BubbleTarget(position: const Rect.fromLTWH(200, 330, 125, 60), correctText: 'You are looking very cool!'),
-          BubbleTarget(position: const Rect.fromLTWH(218, 160, 125, 60), correctText: 'I am trying on a red t-shirt.'),
+          BubbleTarget(position: const Rect.fromLTWH(35, 135, 125, 60), correctText: 'I am wearing a woollen jumper!'),
+          BubbleTarget(position: const Rect.fromLTWH(195, 300, 125, 60), correctText: 'You are looking very cool!'),
+          BubbleTarget(position: const Rect.fromLTWH(200, 145, 125, 60), correctText: 'I am trying on a red t-shirt.'),
         ],
       ),
       ComicPanelData(
         imagePath: imagesWithoutText[2],
         bubbles: [
-          BubbleTarget(position: const Rect.fromLTWH(29, 65, 125, 60), correctText: 'You are smiling! You like them!'),
-          BubbleTarget(position: const Rect.fromLTWH(116, 280, 125, 60), correctText: 'I am looking at my new t-shirt.'),
+          BubbleTarget(position: const Rect.fromLTWH(35, 50, 125, 60), correctText: 'You are smiling! You like them!'),
+          BubbleTarget(position: const Rect.fromLTWH(116, 250, 125, 60), correctText: 'I am looking at my new t-shirt.'),
         ],
       ),
       ComicPanelData(
         imagePath: imagesWithoutText[3],
         bubbles: [
-          BubbleTarget(position: const Rect.fromLTWH(26, 60, 125, 60), correctText: 'Are you paying with cash or card?'),
-          BubbleTarget(position: const Rect.fromLTWH(213, 290, 125, 60), correctText: 'I am paying with my card.'),
-          BubbleTarget(position: const Rect.fromLTWH(139, 130, 125, 60), correctText: 'I am holding the bags.'),
+          BubbleTarget(position: const Rect.fromLTWH(36, 40, 125, 60), correctText: 'Are you paying with cash or card?'),
+          BubbleTarget(position: const Rect.fromLTWH(200, 250, 125, 60), correctText: 'I am paying with my card.'),
+          BubbleTarget(position: const Rect.fromLTWH(135, 115, 125, 60), correctText: 'I am holding the bags.'),
         ],
       ),
       ComicPanelData(
         imagePath: imagesWithoutText[4],
         bubbles: [
-          BubbleTarget(position: const Rect.fromLTWH(28, 305, 125, 60), correctText: 'Yes, we are walking slowly now!'),
-          BubbleTarget(position: const Rect.fromLTWH(208, 305, 125, 60), correctText: 'We are carrying a lot of clothes!'),
+          BubbleTarget(position: const Rect.fromLTWH(35, 270, 125, 60), correctText: 'Yes, we are walking slowly now!'),
+          BubbleTarget(position: const Rect.fromLTWH(205, 270, 125, 60), correctText: 'We are carrying a lot of clothes!'),
         ],
       ),
     ];
