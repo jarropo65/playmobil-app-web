@@ -7,6 +7,7 @@ import '../currency_manager.dart';
 import '../achievements.dart';
 import 'package:flutter/foundation.dart'; // Import for debugPrint
 import 'dart:math' as math; // Explicit import for min/max functions
+import 'package:auto_size_text/auto_size_text.dart'; // Import for AutoSizeText
 
 class BubbleTarget {
   final Rect position; // Position in original image coordinates
@@ -48,7 +49,7 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
 
   // Assuming original image resolution for bubble positions (e.g., image1_sin_texto.png)
   // These dimensions are critical for scaling the bubble positions correctly.
-  // I've estimated these based on common comic panel sizes that would fit the provided Rect values.
+  // Based on the provided images, a common aspect ratio for the panels seems to be around 360x480.
   static const Size _originalComicPanelImageSize = Size(360, 480); // Width x Height
 
   List<String> imagesWithBubbles = [
@@ -98,9 +99,6 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
   // IMPORTANT! This variable will store the difficulty WITHOUT ACCENTS for saving.
   String _currentDifficulty = 'initial'; // Initial difficulty state
 
-  // Removed fixed comicPanelWidth and comicPanelHeight as they will be dynamic
-  // final double comicPanelWidth = 70.0;
-  // final double comicPanelHeight = 100.0;
   final double comicPanelMargin = 4.0; // Margin can remain fixed
 
   final ScrollController _textScrollController = ScrollController();
@@ -119,42 +117,46 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
   }
 
   void _initializeComicPanelsData() {
+    // Adjusted Rect heights for better text wrapping.
+    // The width/height values are based on the _originalComicPanelImageSize (360x480).
+    // The left/top positions are relative to that original size.
+    // Increased height from 45 to 60 for better multi-line text display.
     comicPanelsData = [
       ComicPanelData(
         imagePath: imagesWithoutText[0],
         bubbles: [
-          BubbleTarget(position: const Rect.fromLTWH(30, 346, 125, 45), correctText: 'Yes, and he is carrying a leather bag.'),
-          BubbleTarget(position: const Rect.fromLTWH(205, 346, 125, 45), correctText: 'Look! That man is wearing a brown jacket!'),
+          BubbleTarget(position: const Rect.fromLTWH(30, 340, 125, 60), correctText: 'Yes, and he is carrying a leather bag.'),
+          BubbleTarget(position: const Rect.fromLTWH(205, 340, 125, 60), correctText: 'Look! That man is wearing a brown jacket!'),
         ],
       ),
       ComicPanelData(
         imagePath: imagesWithoutText[1],
         bubbles: [
-          BubbleTarget(position: const Rect.fromLTWH(28, 151, 125, 45), correctText: 'I am wearing a woollen jumper!'),
-          BubbleTarget(position: const Rect.fromLTWH(200, 338, 125, 45), correctText: 'You are looking very cool!'),
-          BubbleTarget(position: const Rect.fromLTWH(218, 163, 125, 45), correctText: 'I am trying on a red t-shirt.'),
+          BubbleTarget(position: const Rect.fromLTWH(28, 150, 125, 60), correctText: 'I am wearing a woollen jumper!'),
+          BubbleTarget(position: const Rect.fromLTWH(200, 330, 125, 60), correctText: 'You are looking very cool!'),
+          BubbleTarget(position: const Rect.fromLTWH(218, 160, 125, 60), correctText: 'I am trying on a red t-shirt.'),
         ],
       ),
       ComicPanelData(
         imagePath: imagesWithoutText[2],
         bubbles: [
-          BubbleTarget(position: const Rect.fromLTWH(29, 65, 125, 45), correctText: 'You are smiling! You like them!'),
-          BubbleTarget(position: const Rect.fromLTWH(116, 285, 125, 45), correctText: 'I am looking at my new t-shirt.'),
+          BubbleTarget(position: const Rect.fromLTWH(29, 65, 125, 60), correctText: 'You are smiling! You like them!'),
+          BubbleTarget(position: const Rect.fromLTWH(116, 280, 125, 60), correctText: 'I am looking at my new t-shirt.'),
         ],
       ),
       ComicPanelData(
         imagePath: imagesWithoutText[3],
         bubbles: [
-          BubbleTarget(position: const Rect.fromLTWH(26, 66, 125, 45), correctText: 'Are you paying with cash or card?'),
-          BubbleTarget(position: const Rect.fromLTWH(213, 292, 125, 45), correctText: 'I am paying with my card.'),
-          BubbleTarget(position: const Rect.fromLTWH(139, 134, 125, 45), correctText: 'I am holding the bags.'),
+          BubbleTarget(position: const Rect.fromLTWH(26, 60, 125, 60), correctText: 'Are you paying with cash or card?'),
+          BubbleTarget(position: const Rect.fromLTWH(213, 290, 125, 60), correctText: 'I am paying with my card.'),
+          BubbleTarget(position: const Rect.fromLTWH(139, 130, 125, 60), correctText: 'I am holding the bags.'),
         ],
       ),
       ComicPanelData(
         imagePath: imagesWithoutText[4],
         bubbles: [
-          BubbleTarget(position: const Rect.fromLTWH(28, 310, 125, 45), correctText: 'Yes, we are walking slowly now!'),
-          BubbleTarget(position: const Rect.fromLTWH(208, 310, 125, 45), correctText: 'We are carrying a lot of clothes!'),
+          BubbleTarget(position: const Rect.fromLTWH(28, 305, 125, 60), correctText: 'Yes, we are walking slowly now!'),
+          BubbleTarget(position: const Rect.fromLTWH(208, 305, 125, 60), correctText: 'We are carrying a lot of clothes!'),
         ],
       ),
     ];
@@ -215,6 +217,12 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
         slots = List.filled(5, null);
         shuffledImages = List.from(imagesWithoutBubbles.take(5))..shuffle();
       } else if (showDifficultExercise) {
+        // Reset currentText for all bubbles when restarting difficult game
+        for (var panel in comicPanelsData) {
+          for (var bubble in panel.bubbles) {
+            bubble.currentText = null;
+          }
+        }
         speechBubbles.shuffle();
       }
     });
@@ -266,14 +274,18 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
   Future<void> _mostrarDialogoVictoria() async { // Show Victory Dialog
     setState(() {
       juegoTerminado = true;
-      puntuacion = 150 - (movimientos > 12 ? (movimientos - 12) * 5 : 0);
-      if (puntuacion < 0) puntuacion = 0;
+      // Calculate score based on difficulty and moves
+      int baseScore = _currentDifficulty == 'facil' ? 100 : 150;
+      int penaltyPerMove = _currentDifficulty == 'facil' ? 5 : 10;
+      int maxMovesForFullScore = _currentDifficulty == 'facil' ? 10 : 12;
+
+      puntuacion = baseScore - (movimientos > maxMovesForFullScore ? (movimientos - maxMovesForFullScore) * penaltyPerMove : 0);
+      if (puntuacion < 0) puntuacion = 0; // Ensure score doesn't go below 0
     });
 
-    int monedasGanadas = puntuacion ~/ 10;
+    int monedasGanadas = CurrencyManager.calcularRecompensa(_currentDifficulty, puntuacion);
     
-    // We use _currentDifficulty which was already normalized in _setDifficulty (without accents)
-    final String difficultyToSave = _currentDifficulty;  
+    final String difficultyToSave = _currentDifficulty; // Already normalized
 
     debugPrint('*** ComicGameScreen: STARTING CALL TO SAVE SCORE ***'); // Translated
     debugPrint('  gameNameIdentifier: "$_gameNameIdentifier"');
@@ -363,6 +375,12 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
         slots = List.filled(5, null);
         shuffledImages = List.from(imagesWithoutBubbles.take(5))..shuffle();
       } else if (showDifficultExercise) {
+        // Reset currentText for all bubbles when starting difficult game
+        for (var panel in comicPanelsData) {
+          for (var bubble in panel.bubbles) {
+            bubble.currentText = null;
+          }
+        }
         speechBubbles.shuffle();
       }
     });
@@ -517,27 +535,28 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
     );
   }
 
-  // --- MODIFIED _buildDifficultExercise FUNCTION FOR RESPONSIVENESS ---
+  // --- MODIFIED _buildDifficultExercise FUNCTION FOR RESPONSIVENESS AND TEXT SIZE ---
   Widget _buildDifficultExercise() {
     return LayoutBuilder( // Use LayoutBuilder to get available space
       builder: (context, constraints) {
         final double availableWidth = constraints.maxWidth;
-        final double availableHeight = constraints.maxHeight; // Not directly used in scaling, but good to have
-
-        // Max width for each comic panel image, based on the largest original image
-        // Assuming images are around 360 wide, we'll try to fit them in a max width of 600
-        // on larger screens, but scale down for smaller screens.
-        final double maxImageWidth = math.min(availableWidth * 0.9, 600.0); // Limit max width
+        // The image height should scale proportionally to its width
+        // We calculate maxImageWidth to ensure it doesn't get too big on very wide screens
+        final double maxImageWidth = math.min(availableWidth * 0.95, 600.0); // Limit max width
         final double panelImageHeight = maxImageWidth * (_originalComicPanelImageSize.height / _originalComicPanelImageSize.width);
 
         // Adjust padding and margins for responsiveness
         double panelHorizontalPadding = availableWidth * 0.02; // 2% of screen width
         panelHorizontalPadding = math.max(8.0, math.min(panelHorizontalPadding, 24.0)); // Min 8, Max 24
 
-        double textBubbleWidth = (availableWidth - (2 * panelHorizontalPadding) - (speechBubbles.length * 12)) / speechBubbles.length;
-        textBubbleWidth = math.max(100.0, math.min(textBubbleWidth, 200.0)); // Keep text bubbles between 100 and 200 width
+        // Draggable text cards:
+        // We need to estimate how many can fit, but also allow them to wrap text
+        // Set a preferred width for the draggable text cards, let height be determined by AutoSizeText
+        double draggableCardWidth = (availableWidth - (2 * panelHorizontalPadding) - (5 * 12)) / 5; // Attempt to fit 5, with spacing
+        draggableCardWidth = math.max(120.0, math.min(draggableCardWidth, 180.0)); // Keep draggable cards between 120 and 180 width
 
-        double textFontSize = availableWidth < 600 ? 12.0 : 14.0; // Smaller font for small screens
+        // Font size for draggable/droppable texts. Let AutoSizeText handle min/max.
+        double baseTextFontSize = availableWidth < 600 ? 14.0 : 16.0; // Base size for small/large screens
 
 
         return Column(
@@ -563,6 +582,7 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                         children: [
                           // Stack for image and bubbles
                           Stack(
+                            alignment: Alignment.center, // Center the image within the stack
                             children: [
                               // Comic panel image
                               Image.asset(
@@ -588,7 +608,6 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                                 final bubble = entry.value;
 
                                 // Calculate scaled position based on the actual rendered image size
-                                // Assuming the Stack's size is controlled by the Image.asset
                                 final double scaleX = maxImageWidth / _originalComicPanelImageSize.width;
                                 final double scaleY = panelImageHeight / _originalComicPanelImageSize.height;
 
@@ -596,7 +615,7 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                                   left: bubble.position.left * scaleX,
                                   top: bubble.position.top * scaleY,
                                   width: bubble.position.width * scaleX,
-                                  height: bubble.position.height * scaleY,
+                                  height: bubble.position.height * scaleY, // Use scaled height
                                   child: DragTarget<String>(
                                     builder: (context, candidateData, rejectedData) {
                                       return Container(
@@ -609,17 +628,17 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                                           color: bubble.currentText != null ? Colors.blue[100]!.withOpacity(0.7) : Colors.grey[200]!.withOpacity(0.7),
                                         ),
                                         child: Center(
-                                          child: FittedBox( // Use FittedBox to scale text if needed
-                                            fit: BoxFit.scaleDown,
-                                            child: Text(
-                                              bubble.currentText ?? 'Drag here', // Translated
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: bubble.currentText != null ? Colors.black87 : Colors.red[800],
-                                                fontSize: textFontSize, // Use dynamic font size
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                          child: AutoSizeText( // Use AutoSizeText here
+                                            bubble.currentText ?? 'Drag here', // Translated
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: bubble.currentText != null ? Colors.black87 : Colors.red[800],
+                                              fontSize: baseTextFontSize, // Use base font size, AutoSizeText will adapt
+                                              fontWeight: FontWeight.bold,
                                             ),
+                                            minFontSize: 10, // Minimum font size
+                                            maxLines: 2, // Allow two lines of text
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       );
@@ -656,7 +675,7 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
             ),
             // Draggable text bubbles container
             Container(
-              height: 90, // Fixed height for the draggable texts row
+              height: 100, // Increased height to comfortably fit two lines of text
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               color: Colors.blueGrey[50],
               child: ClipRect(
@@ -675,10 +694,9 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                       final text = speechBubbles[textIndex];
                       bool isTextUsed = _allBubblesForDifficultExercise.any((bubble) => bubble.currentText == text);
 
-                      // Conditional rendering based on isTextUsed (replaces canDrag)
                       if (isTextUsed) {
                         return Container(
-                          width: textBubbleWidth, // Dynamic width for text bubbles
+                          width: draggableCardWidth, // Dynamic width for text bubbles
                           margin: const EdgeInsets.symmetric(horizontal: 6.0),
                           decoration: BoxDecoration(
                             color: Colors.grey[300],
@@ -686,13 +704,13 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                             border: Border.all(color: Colors.grey[400]!),
                           ),
                           child: Center(
-                            child: FittedBox( // Use FittedBox to scale text if needed
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                text,
-                                style: TextStyle(color: Colors.grey[500], fontSize: textFontSize, fontStyle: FontStyle.italic),
-                                textAlign: TextAlign.center,
-                              ),
+                            child: AutoSizeText( // Use AutoSizeText here
+                              text,
+                              style: TextStyle(color: Colors.grey[500], fontSize: baseTextFontSize, fontStyle: FontStyle.italic),
+                              textAlign: TextAlign.center,
+                              minFontSize: 10, // Minimum font size
+                              maxLines: 2, // Allow two lines of text
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         );
@@ -707,28 +725,38 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                                 color: Colors.blueAccent,
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
-                              child: Text(
+                              child: AutoSizeText( // Use AutoSizeText here
                                 text,
-                                style: TextStyle(color: Colors.white, fontSize: textFontSize, fontWeight: FontWeight.bold),
+                                style: TextStyle(color: Colors.white, fontSize: baseTextFontSize, fontWeight: FontWeight.bold),
                                 textAlign: TextAlign.center,
+                                minFontSize: 10,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
                           childWhenDragging: Container(
+                            width: draggableCardWidth, // Dynamic width for text bubbles
                             margin: const EdgeInsets.symmetric(horizontal: 6.0),
                             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                             decoration: BoxDecoration(
                               color: Colors.grey[300],
                               borderRadius: BorderRadius.circular(8.0),
                             ),
-                            child: Text(
+                            child: AutoSizeText( // Use AutoSizeText here
                               text,
-                              style: TextStyle(color: Colors.grey[500], fontSize: textFontSize),
+                              style: TextStyle(color: Colors.grey[500], fontSize: baseTextFontSize),
                               textAlign: TextAlign.center,
+                              minFontSize: 10,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          dragAnchorStrategy: (draggable, context, position) {
+                            return Offset(draggableCardWidth / 2, 50); // Dynamic anchor based on card width
+                          },
                           child: Container(
-                            width: textBubbleWidth, // Dynamic width for text bubbles
+                            width: draggableCardWidth, // Dynamic width for text bubbles
                             margin: const EdgeInsets.symmetric(horizontal: 6.0),
                             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                             decoration: BoxDecoration(
@@ -737,13 +765,13 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                               boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0, 1))],
                             ),
                             child: Center(
-                              child: FittedBox( // Use FittedBox to scale text if needed
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  text,
-                                  style: TextStyle(color: Colors.white, fontSize: textFontSize, fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.center,
-                                ),
+                              child: AutoSizeText( // Use AutoSizeText here
+                                text,
+                                style: TextStyle(color: Colors.white, fontSize: baseTextFontSize, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                                minFontSize: 10,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
@@ -872,7 +900,7 @@ class _ComicGameScreenState extends State<ComicGameScreen> {
                   final imagePath = shuffledImages[index];
                   if (slots.contains(imagePath)) {
                     // Make sure the placeholder for used images has correct dynamic size
-                    return SizedBox(width: dynamicPanelWidth + (comicPanelMargin * 2)); 
+                    return SizedBox(width: dynamicPanelWidth + (comicPanelMargin * 2));
                   }
                   return Draggable<String>(
                     data: imagePath,
