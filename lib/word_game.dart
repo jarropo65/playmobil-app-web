@@ -29,40 +29,20 @@ class _WordGameState extends State<WordGame> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController controller = TextEditingController();
   final List<String> validWords = [
-    // English words related to clothing, complements, and accessories
+    // --- NUEVAS PALABRAS INCLUIDAS Y COMBINADAS ---
+    // (Ordenadas por longitud y alfabéticamente para mayor claridad)
+
     // 3-letter words
-    'HAT', 'CAP', 'TIE', 'BAG', 'PIN', 'RIG', 'STY', 'CUF', 'HEM', 'BIB',
-    'FAN', 'BEL', 'LEG', 'ARM', 'TOP', 'FIT', 'FUR', 'GEM', 'KIT', 'ZIP',
+    'ARM', 'BAG', 'BEL', 'BIB', 'BRA', 'CAP', 'CUF', 'FAN', 'FIT', 'FUR', 'GEM', 'HAT', 'HEM', 'KIT', 'LEG', 'PIN', 'RIG', 'STY', 'TIE', 'TOP', 'ZIP',
 
     // 4-letter words
-    'SHOE', 'BOOT', 'COAT', 'SUIT', 'VEST', 'SCAR', 'BELT', 'GLOV', 'SOCK',
-    'RING',
-    'SHRT', // Short for SHIRT if 5 letters is too long for some contexts
-    'PANT', 'ROBE', 'CAPE', 'MASK', 'KNIT', 'LACE', 'SILK', 'DENM', // DENIM
-    'GOLD', 'SLIP', 'HEEL', 'FLAT', 'HOOD', 'CUFF', 'JEAN', 'BAGS',
+    'BAGS', 'BELT', 'BOOT', 'CAPE', 'COAT', 'CUFF', 'DENM', 'FLAT', 'GLOV', 'GOLD', 'GOWN', 'HEEL', 'HOOD', 'IRON', 'JEAN', 'KNIT', 'LACE', 'MASK', 'PANT', 'RING', 'ROBE', 'SALE', 'SCAR', 'SHOE', 'SHRT', 'SILK', 'SLIP', 'SOCK', 'SUIT', 'TUTU', 'VEIL', 'VEST', 'WEAR',
 
-    // 5+ letter words
-    'SHIRT',
-    'PANTS',
-    'DRESS',
-    'SKIRT',
-    'SHOES',
-    'SOCKS',
-    'GLOVE', // Singular for GLOVES
-    'SCARF', 'BLOUS', // BLOUSE
-    'JACKT', // JACKET
-    'JEANS', 'BOOTS', 'SLIPS', 'ROBES',
-    'MITTN', // MITTEN
-    'WATCH', 'BRACE', // BRACELET
-    'NECKL', // NECKLACE
-    'EARRG', // EARRING
-    'POCKET', 'BUTTON', 'COLLAR', 'SLEEVE', 'HELMET', 'GOGGLE',
-    'SANDAL', 'SNEAK', // SNEAKER
-    'SWEATR', // SWEATER
-    'TUXEDO', 'UNIFRM', // UNIFORM
-    'WALLET', 'PURSE', 'CLUTCH', 'JERSEY', 'HOODIE', 'LEGGNG', // LEGGING
-    'OUTFIT', 'APPARE', // APPAREL
-    'FASHON', // FASHION
+    // 5-letter words
+    'APRON', 'BLOUS', 'BOOTS', 'BRACE', 'BRAND', 'CLUTCH', 'CROWN', 'CUFFS', 'DRESS', 'EARRG', 'FASHON', 'GLOVE', 'GOGGLE', 'HEELS', 'HOODIE', 'JACKT', 'JEANS', 'JERSEY', 'LABEL', 'LEGGNG', 'MITTN', 'NECKL', 'OUTFIT', 'PANTS', 'PRICE', 'PURSE', 'ROBES', 'SCARF', 'SHIRT', 'SHOES', 'SKIRT', 'SLIPS', 'SNEAK', 'SOCKS', 'STYLE', 'SWEATR', 'TOWEL', 'TUNIC', 'UNIFRM', 'VISOR', 'WATCH', 'WALLET',
+
+    // 6-letter words
+    'APPARE', 'BIKINI', 'BLAZER', 'BLOUSE', 'BOXERS', 'BRACES', 'BUTTON', 'CLOSET', 'COLLAR', 'DIAPER', 'FABRIC', 'GLOVES', 'HANGER', 'HELMET', 'JACKET', 'JUMPER', 'KIMONO', 'MITTEN', 'POCKET', 'SANDAL', 'SHORTS', 'SLEEVE', 'SUNHAT', 'TIGHTS', 'TRUNKS', 'TUXEDO',
   ];
   List<int> mejoresPuntuaciones = []; // Best scores
 
